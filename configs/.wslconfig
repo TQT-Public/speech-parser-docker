@@ -1,0 +1,4 @@
+[wsl2]
+memory=32GB  # Allocate 8 GB of memory
+processors=6  # Use 6 processors (adjust as per your system)
+swap=32GB  # Set swap size to 4 GB

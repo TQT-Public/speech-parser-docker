@@ -1,0 +1,11 @@
+".env"
+.env
+output/
+audio_files/parts/
+./models/vosk-model-*
+models/vosk-model-ru-0.42
+models/vosk-model-small-ru-0.22
+models/vosk-model-tts-ru-0.7-multi
+*.pyc
+__pycache__/
+.git

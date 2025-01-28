@@ -1,0 +1,34 @@
+version: '3.9'
+services:
+  vosk-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: speech-parser-gpu
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - .:/mnt/data
+      - ./models:/mnt/data/models
+      - ./config:/mnt/data/config
+      - ./scripts:/mnt/data/scripts
+      - ./sources:/mnt/data/sources
+      - ./audio_files:/mnt/data/audio_files
+      - ./audio_files/parts:/mnt/data/audio_files/parts
+      - ./output:/mnt/data/output  # Output folder for transcription
+    working_dir: /app
+    command: bash -c "nvidia-smi && python3 --version && python3 main.py && tail -f /dev/null"
+    ports:
+      - "2700:2700"
+    deploy:
+      resources:
+        limits:
+          memory: 26g  # min 6 GB limit
+          cpus: "6.0"  # min 1 CPUs limit
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
