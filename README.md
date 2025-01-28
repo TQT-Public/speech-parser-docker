@@ -44,7 +44,7 @@ docker compose up -d
 ```
 
 ```bash
-docker build --pull --rm -f "Dockerfile" -t speech-parser-gpu:latest "."
+docker build --pull --no-cache --rm -f "Dockerfile" -t speech-parser-gpu:latest "."
 ```
 
 ```bash
@@ -198,3 +198,83 @@ wsl --shutdown
 Then, **restart Docker**.
 
 Also look at set config at  `docker-compose.yaml` configuration, end of the file
+
+### Re-download Vosk inside Docker
+
+```bash
+# Inside Docker, re-download the Vosk model:
+wget https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip
+unzip vosk-model-ru-0.42.zip -d /app/models
+
+```
+
+### Ensure Correct File Permissions
+
+#### Make sure that the files in `/app/models/vosk-model-ru-0.42/graph/words.txt` and the other model files have the correct read permissions
+
+### In Docker, check file permissions
+
+```bash
+ls -l /app/models/vosk-model-ru-0.42/graph/words.txt
+
+```
+
+### Ensure it has read permissions for all users, like
+
+```bash
+-rw-r--r-- 1 root root 12345 Jan 25 12:34 words.txt
+
+```
+
+### Check File Encoding
+
+```bash
+file -i /app/models/vosk-model-ru-0.42/graph/words.txt
+# /app/models/vosk-model-ru-0.42/graph/words.txt: text/plain; charset=utf-8
+
+```
+
+### Use an absolute path in Docker
+
+#### In Docker, relative paths may cause issues. To avoid any confusion, ensure you are using an absolute path to the Vosk model in your Docker container.
+
+```bash
+# Docker File Paths
+AUDIO_FILE_NAME = "/app/sources/ZOOM0067.wav"
+WORKSPACE="/app/sources"
+VOSK_MODEL_PATH="/app/models"
+MODEL_NAME="vosk-model-ru-0.42"
+OUTPUT_DIR="/app/output"
+OUTPUT_DIR_PARTS="/app/audio_files/parts"
+AUDIOWORKSPACE="/app/audio_files"
+CONFIG_PATH="/app/configs"
+SCRIPT_PATH="/app/scripts"
+```
+
+#### If the environment variable is set like this in .env:
+
+```bash
+VOSK_MODEL_PATH=/app/models/vosk-model-ru-0.42
+```
+
+#### Update your code to ensure that the path is absolute:
+
+```bash
+model_path = Path(VOSK_MODEL_PATH_ENV).resolve()  # Ensures it's an absolute path
+```
+
+### Ensure Docker container uses the same Vosk model version as local
+
+#### If the model works fine outside of Docker, ensure that the version of Vosk inside Docker is the same as your local setup. If the wrong version is being installed in Docker, it could cause incompatibility with the model files.
+
+#### Specify the exact version of Vosk in your requirements.txt or Dockerfile:
+
+```bash
+vosk==0.3.32
+```
+
+#### Then rebuild your Docker container to ensure the correct version is installed:
+
+```bash
+docker-compose build
+```

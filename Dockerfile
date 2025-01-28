@@ -16,7 +16,7 @@ ENV LANG=C.UTF-8 \
 
 # Install Python 3.9 and set it as the default Python version
 RUN apt-get update && \
-    apt-get install -y software-properties-common wget curl git ffmpeg nano && \
+    apt-get install -y software-properties-common wget curl git ffmpeg nano unzip && \
     apt-get install -y nvidia-container-toolkit && \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
@@ -27,7 +27,7 @@ RUN apt-get update && \
 
 # # # Alternative: Python 3.11
 # RUN apt-get update && \
-#     apt-get install -y software-properties-common wget curl git ffmpeg && \
+#     apt-get install -y software-properties-common wget curl git ffmpeg nano unzip && \
 #     apt-get install -y nvidia-container-toolkit && \
 #     add-apt-repository ppa:deadsnakes/ppa && \
 #     apt-get update && \

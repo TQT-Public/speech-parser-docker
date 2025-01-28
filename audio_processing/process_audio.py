@@ -86,6 +86,7 @@ def transcribe_audio_vosk(audio_file, model):
     setup_vosk_logging()  # Configure Vosk logs
 
     wf = wave.open(audio_file, "rb")
+    # model = vosk.Model(str(model))  # Re-initialization of Vosk #TODO: fix
     print(model)  # TODO: clear legacy
 
     # Use the function where you're processing the audio

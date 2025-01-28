@@ -8,4 +8,7 @@ models/vosk-model-small-ru-0.22
 models/vosk-model-tts-ru-0.7-multi
 *.pyc
 __pycache__/
+utils/__pycache__/
+audio_processing/__pycache__/
+models/__pycache__/
 .git
