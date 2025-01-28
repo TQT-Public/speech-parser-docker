@@ -172,11 +172,11 @@ FILTER_UNNECESSARY_RTTM: Whether to filter out short RTTM segments (True or Fals
 MIN_RTTM_DURATION: Minimum duration in seconds for keeping segments.
 ```
 
-### Troubleshooting
+## Troubleshooting
 
-#### If you encounter issues such as missing files, ensure the directories are properly configured in your .env file
+### If you encounter issues such as missing files, ensure the directories are properly configured in your .env file
 
-#### 1. **Optimize Docker Resource Usage (WSL2 Configuration)**
+### 1. **Optimize Docker Resource Usage (WSL2 Configuration)**
 
 - Modify the `.wslconfig` file to allocate more memory and CPU to Docker. This should help prevent memory exhaustion when the larger models are being loaded.
 
@@ -278,3 +278,201 @@ vosk==0.3.32
 ```bash
 docker-compose build
 ```
+
+## Installation
+
+Here’s an updated **README** section for installing `ffmpeg` on **Windows**, **Linux**, and **macOS**, along with a general revision of the installation instructions to ensure clarity and accuracy. You can integrate this into your repository's `README.md`.
+
+---
+
+## Installation Instructions
+
+### Prerequisites (all OS)
+
+Before setting up the project, ensure that you have the following prerequisites installed on your system:
+
+- Docker (for running in a containerized environment)
+- Python 3.9 or higher (for local development outside Docker)
+- Git
+- FFmpeg (for audio processing)
+- Vosk model (download and place in the correct directory)
+
+### Installing FFmpeg
+
+FFmpeg is required for converting audio files to the appropriate format for Vosk.
+
+#### **Windows**
+
+To install FFmpeg on Windows:
+
+1. **Download FFmpeg**:
+   - Visit the official FFmpeg website: [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+   - Click on the "Windows" logo and follow the instructions for downloading the build.
+
+2. **Set FFmpeg Path**:
+   - Unzip the downloaded file.
+   - Move the `bin` folder (which contains `ffmpeg.exe`) to a permanent location.
+   - Add the path to `ffmpeg.exe` in the system environment variables:
+     - Search for "Environment Variables" in Windows.
+     - Edit the `Path` variable in the "System variables" section.
+     - Add the full path to the `bin` directory containing `ffmpeg.exe`.
+
+3. **Verify Installation**:
+   Open Command Prompt and run:
+
+   ```sh
+   ffmpeg -version
+   ```
+
+   You should see the FFmpeg version output.
+
+#### **Linux (Ubuntu/Debian-based)**
+
+To install FFmpeg on Linux:
+
+1. **Update package lists**:
+
+   ```sh
+   sudo apt update
+   ```
+
+2. **Install FFmpeg**:
+
+   ```sh
+   sudo apt install ffmpeg
+   ```
+
+3. **Verify Installation**:
+
+   ```sh
+   ffmpeg -version
+   ```
+
+#### **macOS**
+
+To install FFmpeg on macOS:
+
+1. **Using Homebrew** (recommended):
+   - If you don’t have Homebrew installed, install it first:
+
+     ```sh
+     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+     ```
+
+2. **Install FFmpeg**:
+
+   ```sh
+   brew install ffmpeg
+   ```
+
+3. **Verify Installation**:
+
+   ```sh
+   ffmpeg -version
+   ```
+
+### Setting Up the Project
+
+1. **Clone the repository**:
+
+   ```sh
+   git clone https://github.com/TQT-Public/speech-parser-docker.git
+   cd speech-parser-docker
+   ```
+
+2. **Install dependencies**:
+
+   - **If using Docker**:
+
+     - Build and run the Docker container:
+
+       ```sh
+       docker-compose up --build
+       ```
+
+   - **If running locally** (outside Docker):
+     - Create a Python virtual environment:
+
+       ```sh
+       python3 -m venv venv
+       source venv/bin/activate  # On Windows: venv\Scripts\activate
+       ```
+
+     - Install Python dependencies:
+
+       ```sh
+       pip install -r requirements.txt
+       ```
+
+### Environment Variables (Example)
+
+Before running the project, you will need to configure environment variables in a `.env` file.
+
+Here’s a sample `.env` file:
+
+```bash
+# General Settings
+MAX_PROCESSES=3
+DRY_RUN=False
+ASSIGNSPEAKERS=False
+FILTER_UNNECESSARY_RTTM=True
+MIN_RTTM_DURATION=2.0
+USE_CUSTOM_VOSK=False
+USE_BATCHES=True
+BATCH_SIZE=10.0
+
+# File Paths
+AUDIO_FILE_NAME="ZOOM0067.wav"
+WORKSPACE="./sources"
+VOSK_MODEL_PATH="./models"
+MODEL_NAME="vosk-model-ru-0.42"
+OUTPUT_DIR="./output"
+OUTPUT_DIR_PARTS="./audio_files/parts"
+AUDIOWORKSPACE="./audio_files"
+```
+
+### Running the Project
+
+#### **Using Docker**
+
+If you have Docker installed, simply run:
+
+```sh
+docker-compose up
+```
+
+This will pull the necessary Docker image, build the environment, and run the application.
+
+#### **Running Locally** (without Docker)
+
+1. Ensure FFmpeg is installed and added to your system’s path.
+2. Activate your Python virtual environment (if not already activated):
+
+   ```sh
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Run the script:
+
+   ```sh
+   python main.py
+   ```
+
+### Downloading Vosk Models
+
+To run the speech recognition system, you will need to download and use the Vosk model. The model should be placed inside the `models` directory of the project.
+
+1. **Download Vosk model**:
+   - Download a Vosk model from [https://alphacephei.com/vosk/models](https://alphacephei.com/vosk/models).
+   - Unzip the model and place it in the `models` directory, e.g., `models/vosk-model-ru-0.42`.
+
+2. **Ensure that the `.env` file** correctly points to the Vosk model directory:
+
+   ```bash
+   VOSK_MODEL_PATH="./models"
+   MODEL_NAME="vosk-model-ru-0.42"
+   ```
+
+---
+
+This updated README ensures that all users across Windows, Linux, and macOS have clear instructions for installing FFmpeg, setting up the environment, and running the project.
