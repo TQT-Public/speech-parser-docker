@@ -54,62 +54,6 @@ OUTPUT_DIR_PARTS = os.getenv("OUTPUT_DIR_PARTS")
 AUDIOWORKSPACE_ENV = Path(os.getenv("AUDIOWORKSPACE"))
 
 
-# def batch_segments(rttm_segments, batch_size):
-#     """
-#     Batch RTTM segments into larger chunks based on batch_size.
-#     Args:
-#         rttm_segments (list): List of segments with 'start_time', 'end_time', and 'speaker'.
-#         batch_size (float): Size of each batch in seconds.
-#     Returns:
-#         list: List of batched segments, where each batch has 'start_time', 'end_time', 'speaker', and 'audio_segment_file'.
-#     """
-#     batched_segments = []
-#     current_batch = None
-#     current_start_time = None
-#     current_end_time = None
-#     current_speaker = None
-
-#     for segment in rttm_segments:
-#         start_time = segment["start_time"]
-#         end_time = segment["end_time"]
-#         speaker = segment["speaker"]
-
-#         # If there's no current batch or the batch would exceed the batch size, finalize the current batch
-#         if current_batch is None:
-#             current_batch = []
-#             current_start_time = start_time
-#             current_speaker = speaker
-#         elif end_time - current_start_time > batch_size:
-#             batched_segments.append(
-#                 {
-#                     "speaker": current_speaker,
-#                     "start_time": current_start_time,
-#                     "end_time": current_end_time,
-#                     "audio_segment_file": None,  # Placeholder for batch audio file
-#                 }
-#             )
-#             current_batch = []
-#             current_start_time = start_time
-#             current_speaker = speaker
-
-#         current_batch.append(segment)
-#         current_end_time = end_time
-
-#     # Append the last batch
-#     if current_batch:
-#         batched_segments.append(
-#             {
-#                 "speaker": current_speaker,
-#                 "start_time": current_start_time,
-#                 "end_time": current_end_time,
-#                 "audio_segment_file": None,  # Placeholder for batch audio file
-#             }
-#         )
-
-#     # Return the batched segments, each with speaker, start_time, and end_time
-#     return batched_segments
-
-
 def batch_segments(rttm_segments, batch_size):
     """
     Batch RTTM segments into larger chunks based on batch_size.

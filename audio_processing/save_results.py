@@ -25,21 +25,6 @@ def save_summary(speaker_transcription, audio_name, output_dir):
     logger.debug(f"Discussion summary saved to: {summary_file}")
 
 
-# def save_filtered_dialogue(speaker_transcription, audio_name, output_dir):
-#     filtered_file = os.path.join(output_dir, str(audio_name), "filtered_transcription.txt")
-#     with open(filtered_file, "w", encoding="utf-8") as f:
-#         for entry in speaker_transcription:
-#             f.write(f"{entry['speaker']}: {entry['transcription']}\n")
-#     logger.debug(f"Filtered dialogue saved to: {filtered_file}")
-
-
-# def save_summary(speaker_transcription, audio_name, output_dir):
-#     summary_file = os.path.join(output_dir, str(audio_name), "summary.txt")
-#     with open(summary_file, "w", encoding="utf-8") as f:
-#         f.write("\n".join([entry["transcription"] for entry in speaker_transcription]))
-#     logger.debug(f"Discussion summary saved to: {summary_file}")
-
-
 def save_transcription_results(speaker_transcription, csv_file, json_file, rttm_file):
     """
     Saves the speaker transcription results to CSV and JSON files.
@@ -66,22 +51,3 @@ def save_transcription_results(speaker_transcription, csv_file, json_file, rttm_
         json.dump(speaker_transcription, json_file, ensure_ascii=False, indent=4)
 
     logger.info(f"Files saved: {csv_path}, {json_path}, {rttm_file_path}")
-
-
-# def save_filtered_dialogue(output_dir, audio_file_stem, speaker_transcription, part_num):
-#     """Save filtered dialogue to a file."""
-#     filtered_file = os.path.join(output_dir, f"{audio_file_stem}_part{part_num}_filtered.txt")
-#     with open(filtered_file, "w", encoding="utf-8") as f:
-#         f.write(speaker_transcription)
-#     print(f"Filtered dialogue saved to: {filtered_file}")
-#     return filtered_file
-
-
-# def save_summary(output_dir, audio_file_stem, summary_text, part_num):
-#     """Save discussion summary to a file."""
-#     summary_file = os.path.join(output_dir, f"{audio_file_stem}_part{part_num}_summary.txt")
-#     with open(summary_file, "w", encoding="utf-8") as f:
-#         f.write("Key Points:\n")
-#         f.write(summary_text)
-#     print(f"Summary saved to: {summary_file}")
-#     return summary_file
