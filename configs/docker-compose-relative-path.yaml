@@ -11,12 +11,13 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       # - CUDA_VISIBLE_DEVICES=0
     volumes:
-      - .:/mnt/data
-      - ./models:/mnt/data/models
-      - ./sources:/mnt/data/sources
-      - ./audio_files:/mnt/data/audio_files
-      - ./audio_files/parts:/mnt/data/audio_files/parts
-      - ./output:/mnt/data/output  # Output folder for transcription
+      - .:/app
+      - ./models:/app/models
+      - ./config:/app/config
+      - ./scripts:/app/scripts
+      - ./sources:/app/sources
+      - ./audio_files:/app/audio_files
+      - ./output:/app/output # Output folder for transcription
     working_dir: /app
     command: bash -c "nvidia-smi && python3 main.py && tail -f /dev/null"
     ports:
@@ -24,8 +25,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 32g  # 6 GB limit
-          cpus: "6.0"  # 3 CPUs limit
+          memory: 26g  # 26 GB limit
+          cpus: "6.0"  # 6 CPUs limit
         reservations:
           devices:
             - driver: nvidia

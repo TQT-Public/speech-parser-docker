@@ -1,0 +1,7 @@
+Summarize the following dialogue and extract main topics:
+- Who proposed each topic?
+- What are the main tasks discussed?
+- Format the output as:
+  * Time: [timestamp]
+  * Speaker: [speaker]
+  * Text: [text]

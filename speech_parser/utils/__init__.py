@@ -5,3 +5,5 @@ from .helpers import (
     set_custom_vosk_config,
     set_default_vosk_config,
 )
+
+from .env import *

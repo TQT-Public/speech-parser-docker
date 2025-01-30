@@ -226,6 +226,30 @@ ls -l /app/models/vosk-model-ru-0.42/graph/words.txt
 
 ```
 
+### Clean up the old build
+
+```bash
+docker-compose down --rmi all --volumes --remove-orphans
+
+```
+
+### Check Python version of libraries
+
+```bash
+python -c "import numpy; print(numpy.__version__)"
+
+```
+
+### Move and Delete AI folders
+
+```bash
+# Watch for (copy=0, delete=1) == just delete
+# in .env => MODEL_ENABLE_COPY=True
+#            MODEL_MOVE_AND_DELETE=True
+python -m scripts.move_model_out llama
+
+```
+
 ### Check File Encoding
 
 ```bash
@@ -236,7 +260,7 @@ file -i /app/models/vosk-model-ru-0.42/graph/words.txt
 
 ### Use an absolute path in Docker
 
-#### In Docker, relative paths may cause issues. To avoid any confusion, ensure you are using an absolute path to the Vosk model in your Docker container.
+#### In Docker, relative paths may cause issues. To avoid any confusion, ensure you are using an absolute path to the Vosk model in your Docker container
 
 ```bash
 # Docker File Paths
@@ -251,13 +275,13 @@ CONFIG_PATH="/app/configs"
 SCRIPT_PATH="/app/scripts"
 ```
 
-#### If the environment variable is set like this in .env:
+#### If the environment variable is set like this in .env
 
 ```bash
 VOSK_MODEL_PATH=/app/models/vosk-model-ru-0.42
 ```
 
-#### Update your code to ensure that the path is absolute:
+#### Update your code to ensure that the path is absolute
 
 ```bash
 model_path = Path(VOSK_MODEL_PATH_ENV).resolve()  # Ensures it's an absolute path
@@ -265,15 +289,15 @@ model_path = Path(VOSK_MODEL_PATH_ENV).resolve()  # Ensures it's an absolute pat
 
 ### Ensure Docker container uses the same Vosk model version as local
 
-#### If the model works fine outside of Docker, ensure that the version of Vosk inside Docker is the same as your local setup. If the wrong version is being installed in Docker, it could cause incompatibility with the model files.
+#### If the model works fine outside of Docker, ensure that the version of Vosk inside Docker is the same as your local setup. If the wrong version is being installed in Docker, it could cause incompatibility with the model files
 
-#### Specify the exact version of Vosk in your requirements.txt or Dockerfile:
+#### Specify the exact version of Vosk in your requirements.txt or Dockerfile
 
 ```bash
 vosk==0.3.32
 ```
 
-#### Then rebuild your Docker container to ensure the correct version is installed:
+#### Then rebuild your Docker container to ensure the correct version is installed
 
 ```bash
 docker-compose build
@@ -296,6 +320,33 @@ Before setting up the project, ensure that you have the following prerequisites 
 - Git
 - FFmpeg (for audio processing)
 - Vosk model (download and place in the correct directory)
+
+### **Step 0: Set Up CUDA Toolkit locally**
+
+1. **Install CUDA Toolkit**:
+   - Download and install the CUDA Toolkit compatible with your GPU (GTX 1070 Ti supports CUDA 11.x).
+   - Follow the official instructions: [CUDA Toolkit Documentation](https://developer.nvidia.com/cuda-downloads).
+
+2. **Install cuDNN**:
+   - Download and install cuDNN (CUDA Deep Neural Network library) for your CUDA version.
+   - Follow the official instructions: [cuDNN Documentation](https://developer.nvidia.com/cudnn-downloads): [All NVIDIA Downloads](https://developer.nvidia.com/downloads).
+
+3. **Verify Installation**:
+   - Run `nvidia-smi` to check if your GPU is recognized.
+   - Install PyTorch with CUDA support:
+
+     ```bash
+     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+     ```
+
+   - Verify PyTorch can use CUDA:
+
+     ```python
+     import torch
+     print(torch.cuda.is_available())  # Should return True
+     ```
+
+---
 
 ### Installing FFmpeg
 
@@ -404,33 +455,6 @@ To install FFmpeg on macOS:
        pip install -r requirements.txt
        ```
 
-### Environment Variables (Example)
-
-Before running the project, you will need to configure environment variables in a `.env` file.
-
-Here’s a sample `.env` file:
-
-```bash
-# General Settings
-MAX_PROCESSES=3
-DRY_RUN=False
-ASSIGNSPEAKERS=False
-FILTER_UNNECESSARY_RTTM=True
-MIN_RTTM_DURATION=2.0
-USE_CUSTOM_VOSK=False
-USE_BATCHES=True
-BATCH_SIZE=10.0
-
-# File Paths
-AUDIO_FILE_NAME="ZOOM0067.wav"
-WORKSPACE="./sources"
-VOSK_MODEL_PATH="./models"
-MODEL_NAME="vosk-model-ru-0.42"
-OUTPUT_DIR="./output"
-OUTPUT_DIR_PARTS="./audio_files/parts"
-AUDIOWORKSPACE="./audio_files"
-```
-
 ### Running the Project
 
 #### **Using Docker**
@@ -476,3 +500,135 @@ To run the speech recognition system, you will need to download and use the Vosk
 ---
 
 This updated README ensures that all users across Windows, Linux, and macOS have clear instructions for installing FFmpeg, setting up the environment, and running the project.
+
+## AI features
+
+### **Downloading AI Models**
+
+Update `.env` variables
+
+```bash
+# Model Names
+VOSK_MODEL_NAME=vosk-model-ru-0.42
+LLAMA_MODEL_NAME=llama-2-7b
+MISTRAL_MODEL_NAME=mistral-7b-v0.1
+FALCON_MODEL_NAME=falcon-7b
+DEEPSEEK_MODEL_NAME=DeepSeek-R1-Distill-Llama-8B
+STABLE_DIFFUSION_MODEL_NAME=stable-diffusion-v1-5
+
+# Model Paths
+MODELS_DIR=./models
+VOSK_MODEL_PATH=${MODELS_DIR}/vosk/${VOSK_MODEL_NAME}
+LLAMA_MODEL_PATH=${MODELS_DIR}/ai/llama/${LLAMA_MODEL_NAME}
+MISTRAL_MODEL_PATH=${MODELS_DIR}/ai/mistral/${MISTRAL_MODEL_NAME}
+FALCON_MODEL_PATH=${MODELS_DIR}/ai/falcon/${FALCON_MODEL_NAME}
+DEEPSEEK_MODEL_PATH=${MODELS_DIR}/ai/deepseek/${DEEPSEEK_MODEL_NAME}
+STABLE_DIFFUSION_MODEL_PATH=${MODELS_DIR}/stable_diffusion/${STABLE_DIFFUSION_MODEL_NAME}
+```
+
+### To download the models into the correct subfolders, use the following commands one-liners
+
+1. **DeepSeek-R1-Distill-Llama-8B**:
+
+   ```bash
+   python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('unsloth/DeepSeek-R1-Distill-Llama-8B').save_pretrained('./models/ai/deepseek/DeepSeek-R1-Distill-Llama-8B')"
+   ```
+
+   ```bash
+   python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; model = AutoModelForCausalLM.from_pretrained('unsloth/DeepSeek-R1-Distill-Llama-8B'); tokenizer = AutoTokenizer.from_pretrained('unsloth/DeepSeek-R1-Distill-Llama-8B'); model.save_pretrained('./models/ai/deepseek/DeepSeek-R1-Distill-Llama-8B'); tokenizer.save_pretrained('./models/ai/deepseek/DeepSeek-R1-Distill-Llama-8B')"
+   ```
+
+2. **LLaMA 2**:
+    For detailed info and access look at [Llama page](https://huggingface.co/meta-llama/Llama-2-7b-hf)
+
+   ```bash
+   python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b-hf', use_auth_token='your_API_key').save_pretrained('./models/ai/llama/llama-2-7b')"
+   ```
+
+   ```bash
+   python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b-hf', use_auth_token='your_API_key'); tokenizer = AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-hf', use_auth_token='your_API_key'); model.save_pretrained('./models/ai/llama/llama-2-7b'); tokenizer.save_pretrained('./models/ai/llama/llama-2-7b')"
+    ```
+
+3. **Mistral 7B**:
+    For detailed info and access look at [Mistral page](https://huggingface.co/mistralai/Mistral-7B-v0.1)
+
+   ```bash
+   python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('mistralai/Mistral-7B-v0.1', use_auth_token='your_API_key').save_pretrained('./models/ai/mistral/mistral-7b-v0.1')"
+   ```
+
+    ```bash
+   python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; model = AutoModelForCausalLM.from_pretrained('mistralai/Mistral-7B-v0.1', token='your_API_key'); tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-v0.1', token='your_API_key'); model.save_pretrained('./models/ai/mistral/mistral-7b-v0.1'); tokenizer.save_pretrained('./models/ai/mistral/mistral-7b-v0.1')"
+   ```
+
+4. **Falcon 7B**:
+
+   ```bash
+   python -c "from transformers import AutoModelForCausalLM; AutoModelForCausalLM.from_pretrained('tiiuae/falcon-7b').save_pretrained('./models/ai/falcon/falcon-7b')"
+    ```
+
+    ```bash
+   python -c "from transformers import AutoModelForCausalLM, AutoTokenizer; model = AutoModelForCausalLM.from_pretrained('tiiuae/falcon-7b'); tokenizer = AutoTokenizer.from_pretrained('tiiuae/falcon-7b'); model.save_pretrained('./models/ai/falcon/falcon-7b'); tokenizer.save_pretrained('./models/ai/falcon/falcon-7b')"
+   ```
+
+5. **Stable Diffusion**:
+
+   ```bash
+   python -c "from diffusers import StableDiffusionPipeline; StableDiffusionPipeline.from_pretrained('runwayml/stable-diffusion-v1-5').save_pretrained('./models/stable_diffusion/stable-diffusion-v1-5')"
+   ```
+
+## Trouble-shooting AI
+
+### Registry setting to enable long paths (Windows)
+
+```powershell
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+```
+
+### Find `site-packages\unsloth\models\llama.py` if facing errors with `LlamaModel_fast_forward_inference`
+
+```bash
+conda env list
+cd <path_to_conda_env>/lib/python3.x/site-packages/unsloth/models/
+ls -l | grep llama.py
+
+```
+
+`<path_to_conda_env>` on Windows: `{CURRENT_USER}\.conda\envs\unsloth_env\Lib\site-packages\unsloth\models\llama.py`
+
+```python llama.py
+# in -> def LlamaModel_fast_forward_inference (line ~900)
+# Ensure hidden_states are cast to a valid PyTorch dtype
+if isinstance(self.config.torch_dtype, str):
+    if self.config.torch_dtype == 'float32':
+        dtype = torch.float32
+    elif self.config.torch_dtype == 'float16':
+        dtype = torch.float16
+    else:
+        raise ValueError(f"Invalid torch_dtype: {self.config.torch_dtype}")
+else:
+    dtype = self.config.torch_dtype
+
+# Cast hidden_states to the correct dtype
+hidden_states = hidden_states.to(dtype)
+# hidden_states = hidden_states.to(self.config.torch_dtype) # Original
+```
+
+### No module named "triton" Windows issue
+
+#### Look at [link](https://huggingface.co/madbuda/triton-windows-builds/resolve/main/triton-3.0.0-cp310-cp310-win_amd64.whl) and [link](https://huggingface.co/madbuda/triton-windows-builds/resolve/main/triton-3.0.0-cp310-cp310-win_amd64.whl)
+
+```bash
+pip install triton-3.0.0-cp310-cp310-win_amd64.whl
+```
+
+### Correct ENV for conda+unsloth
+
+```bash
+conda create --name unsloth_env python=3.11 pytorch-cuda=12.1 pytorch cudatoolkit xformers -c pytorch -c nvidia -c xformers -y
+conda activate unsloth_env
+pip install -U xformers --index-url https://download.pytorch.org/whl/cu121
+pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+pip install --no-deps trl peft accelerate bitsandbytes torchaudio
+pip install python-dotenv loguru tqdm pyannote-audio xformers --index-url https://download.pytorch.org/whl/cu121
+pip install vosk diffusers pydub
+```

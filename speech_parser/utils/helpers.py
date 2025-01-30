@@ -9,17 +9,21 @@ import shutil
 
 from dotenv import load_dotenv
 
+from speech_parser.utils.env import env_as_float, env_as_int, env_as_path, env_as_str
+
 # Load environment variables from .env
 load_dotenv()
 
 # Define paths for default and custom configurations
-VOSK_MODEL_PATH_ENV = Path(os.getenv("VOSK_MODEL_PATH"))
-MODEL_NAME = os.getenv("MODEL_NAME")
-VOSK_MODEL_FULL_PATH_ENV = os.path.join(str(VOSK_MODEL_PATH_ENV), str(MODEL_NAME))
-CONFIG_PATH_ENV = Path(os.getenv("CONFIG_PATH"))
-CONFIG_FILE = os.path.join(VOSK_MODEL_FULL_PATH_ENV, "conf", "model.conf")
+VOSK_MODEL_PATH_ENV = env_as_path("VOSK_MODEL_PATH", "./model/vosk")
+MODEL_NAME = env_as_str("MODEL_NAME", "vosk-model-ru-0.42")
+# VOSK_MODEL_FULL_PATH_ENV = Path(str(VOSK_MODEL_PATH_ENV))
+VOSK_MODEL_FULL_PATH_ENV = env_as_path("VOSK_MODEL_PATH", "./model/vosk/vosk-model-ru-0.42")
+CONFIG_PATH_ENV = env_as_path("CONFIG_PATH", "./configs")
+CONFIG_FILE = Path(VOSK_MODEL_FULL_PATH_ENV, "conf", "model.conf")
+# CONFIG_FILE = os.path.join(VOSK_MODEL_FULL_PATH_ENV, "conf", "model.conf")
 # DEFAULT_CONFIG_FILE = os.path.join(VOSK_MODEL_FULL_PATH_ENV, "conf", "model_default.config")
-DEFAULT_CONFIG_FILE = os.path.join(CONFIG_PATH_ENV, "model_default.config")
+DEFAULT_CONFIG_FILE = Path(CONFIG_PATH_ENV, "model_default.config")
 
 
 def parse_config_file(config_file_path):
@@ -56,9 +60,9 @@ def write_config_file(config, file_path):
 def set_custom_vosk_config():
 
     load_dotenv()
-    CUSTOM_VOSK_BEAM = float(os.getenv("CUSTOM_VOSK_BEAM", 13.0))
-    CUSTOM_VOSK_MAX_ACTIVE = int(os.getenv("CUSTOM_VOSK_MAX_ACTIVE", 7000))
-    CUSTOM_VOSK_LATTICE_BEAM = float(os.getenv("CUSTOM_VOSK_LATTICE_BEAM", 6.0))
+    CUSTOM_VOSK_BEAM = env_as_float("CUSTOM_VOSK_BEAM", 13.0)
+    CUSTOM_VOSK_MAX_ACTIVE = env_as_int("CUSTOM_VOSK_MAX_ACTIVE", 7000)
+    CUSTOM_VOSK_LATTICE_BEAM = env_as_float("CUSTOM_VOSK_LATTICE_BEAM", 6.0)
 
     custom_config = {
         "--beam": CUSTOM_VOSK_BEAM,

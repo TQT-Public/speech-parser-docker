@@ -13,9 +13,11 @@ services:
     volumes:
       - .:/mnt/data
       - ./models:/mnt/data/models
-      - ./config:/mnt/data/config
+      - ./configs:/mnt/data/configs
       - ./scripts:/mnt/data/scripts
       - ./sources:/mnt/data/sources
+      - ./speech_parser:/mnt/data/speech_parser
+      - ./speech_analyzer:/mnt/data/speech_analyzer
       - ./audio_files:/mnt/data/audio_files
       - ./audio_files/parts:/mnt/data/audio_files/parts
       - ./output:/mnt/data/output  # Output folder for transcription

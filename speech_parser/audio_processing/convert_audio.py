@@ -1,13 +1,16 @@
 # from pathlib import Path
 import subprocess
-import os
+
+# import os
 from loguru import logger
 from dotenv import load_dotenv
+
+from speech_parser.utils.env import env_as_int
 
 # Load environment variables from .env
 load_dotenv()
 
-VOSK_SAMPLE_RATE = int(os.getenv("VOSK_SAMPLE_RATE", 16000))
+VOSK_SAMPLE_RATE = env_as_int("VOSK_SAMPLE_RATE", 16000)
 
 
 def convert_wav_to_mp3(audio_file):
@@ -18,10 +21,8 @@ def convert_wav_to_mp3(audio_file):
     """
     output_file = str(audio_file)
     output_path = output_file.replace(".wav", ".mp3")
-    # output_path = audio_file.parent / mp3_file_path
     print(f"End-point: {output_path}")
 
-    # mp3_file_path = wav_file_path.replace(".wav", ".mp3")
     command = ["ffmpeg", "-i", str(audio_file), "-codec:a", "libmp3lame", "-b:a", "192k", output_path]
     subprocess.run(command, check=True)
     logger.info(f"Converted {str(audio_file)} to {output_path}")
