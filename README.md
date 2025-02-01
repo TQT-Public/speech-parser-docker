@@ -634,3 +634,41 @@ pip install --no-deps trl peft accelerate bitsandbytes torchaudio
 pip install python-dotenv loguru tqdm pyannote-audio xformers --index-url https://download.pytorch.org/whl/cu121
 pip install vosk diffusers pydub
 ```
+
+### **Steps to Retrieve an OpenAI API Key**
+
+1. **Create an OpenAI Account**:
+
+    - Go to [OpenAI's website](https://beta.openai.com/signup/).
+    - Sign up using your email address, Google account, or Microsoft account.
+2. **Access Your API Key**:
+
+    - After logging in, go to the [OpenAI API Keys page](https://beta.openai.com/account/api-keys).
+    - Click on "Create New API Key."
+    - Copy the generated key and save it securely.
+3. **Store the API Key**:
+
+    - Add the key to your `.env` file in your project:
+
+        ```env
+        OPENAI_API_KEY=your_openai_api_key_here
+        ```
+
+4. **Use the API Key in Your Python Code**:
+
+    - Install OpenAI SDK:
+
+        ```bash
+        pip install openai
+        ```
+
+    - In your Python code, load the `.env` file and set the API key:
+
+        ```python
+        import openai
+        from dotenv import load_dotenv
+        import os
+
+        load_dotenv()
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        ```
