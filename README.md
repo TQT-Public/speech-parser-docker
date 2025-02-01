@@ -24,8 +24,10 @@ This project provides tools for speaker diarization, audio transcription, and fi
 
 1. Install dependencies from `requirements.txt` or use `poetry install`.
 2. Place your audio files in the `sources` directory.
-3. Adjust .env
-4. Run the main script:
+3. Adjust `.env` - put `API` keys into folders, correct the name of Audio file `AUDIO_FILE_NAME`
+4. Minimal setup include: installing `FFMPEG` for your platform and running `python -m models.download_model` to download `vosk` for your spoken language
+5. [optional] Install CUDA and download Language models locally for summarization, or use API calls
+6. Run the main script:
 
 ```bash
 cp .env.default .env
