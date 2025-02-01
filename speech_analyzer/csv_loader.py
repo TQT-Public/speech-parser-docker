@@ -7,9 +7,6 @@ import os
 
 from transformers import AutoTokenizer
 
-# from speech_analyzer.dialogue_analyzer import generate_summary
-# from speech_analyzer.gpt_loader import load_gpt_model
-
 
 def format_dialogue_for_summary(df):
     """
@@ -141,49 +138,6 @@ def load_csv_for_neural_network(csv_file_path, target_column=None, normalize=Fal
         return X_tensor
 
 
-# def load_csv_for_neural_network(csv_file_path, target_column=None, normalize=False, show_stats=True):
-#     """
-#     Load CSV data and prepare it for neural network processing.
-
-#     Args:
-#         csv_file_path (str): Path to the CSV file.
-#         target_column (str): Column name of the target labels (optional).
-#         normalize (bool): Whether to normalize the data or not.
-#         show_stats (bool): Whether to show dataset statistics (mean, std, etc.).
-
-#     Returns:
-#         X (Tensor): Feature data for neural network (PyTorch Tensor).
-#         y (Tensor): Target labels (PyTorch Tensor), if provided.
-#     """
-#     # Load the CSV data into a pandas DataFrame
-#     df = pd.read_csv(csv_file_path)
-
-#     if show_stats:
-#         logger.debug("Data Statistics:")
-#         logger.info(df.describe())  # Shows basic statistics: count, mean, std, min, max, etc.
-
-#     # If a target column is specified, separate features (X) and target (y)
-#     if target_column:
-#         X = df.drop(columns=[target_column]).values  # Drop the target column, keep features
-#         y = df[target_column].values  # Extract the target column
-#     else:
-#         X = df.values  # Use all columns as features if no target column is specified
-#         y = None  # No target labels
-
-#     # Optional: Normalize the data (feature scaling)
-#     if normalize:
-#         X = (X - np.mean(X, axis=0)) / np.std(X, axis=0)
-
-#     # Convert data to PyTorch tensors (use torch.Tensor for float values)
-#     X_tensor = torch.tensor(X, dtype=torch.float32)
-
-#     if y is not None:
-#         y_tensor = torch.tensor(y, dtype=torch.float32)  # Convert target labels to tensor
-#         return X_tensor, y_tensor
-#     else:
-#         return X_tensor
-
-
 if __name__ == "__main__":
     # python -m speech_analyzer.csv_loader
     csv_file_path = "./audio_files/ZOOM0067.csv"
@@ -201,7 +155,7 @@ if __name__ == "__main__":
 
     # Example of tokenizing the 'transcription' column from the CSV
     tokenized_data = tokenize_text_data(df, column_name="transcription")
-    logger.debug(tokenized_data)
+    logger.debug(f"{str(tokenized_data)}")
 
     # X, Y = load_csv_for_neural_network(csv_file_path, target_column="transcription")
     # Load data for neural networks

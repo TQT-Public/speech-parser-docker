@@ -168,11 +168,18 @@ def analyze_dialogue(file_path, model, tokenizer):
     """
     # Load dialogue data (replace this with actual loading function) # TODO: fix
     dialogue_data = load_dialogue_data(file_path)
+    dialogue_text = "\n".join(
+        [
+            f"{row['speaker']} ({row['start_time']}-{row['end_time']}): {row['transcription']}"
+            for _, row in dialogue_data.iterrows()
+        ]
+    )
+    # or
     # Load the CSV and display statistics
     df = load_csv_data_for_model(file_path, show_stats=True)
 
     dialogue_text = format_dialogue_for_summary(df)
-    # Format dialogue data from CSV for summarization
+    # Applies format dialogue data from CSV for summarization
     # dialogue_text = "\n".join(
     #     [
     #         f"{row['speaker']} ({row['start_time']}-{row['end_time']}): {row['transcription']}"
@@ -186,14 +193,6 @@ def analyze_dialogue(file_path, model, tokenizer):
     logger.info(df.describe())
     # dialogue_data = load_csv_for_neural_network(file_path, target_column="transcription")
 
-    # Format dialogue for input
-    dialogue_text = "\n".join(
-        [
-            f"{row['speaker']} ({row['start_time']}-{row['end_time']}): {row['transcription']}"
-            for _, row in dialogue_data.iterrows()
-        ]
-    )
-
     # Refine the prompt for better summarization
     prompt = (
         "Summarize the following dialogue and extract the main topics. "
@@ -201,57 +200,22 @@ def analyze_dialogue(file_path, model, tokenizer):
         f"{dialogue_text}"
     )
 
-    # Generate summary (ensuring dtype is set correctly)
+    # Generate summary (ensuring dtype is set correctly) # TODO: add loading several variats of loaders and types of summarizing functions. Make a class: ModelLoaderClass, and SummaRizor
     summary = generate_summary(prompt, model, tokenizer)
+    #     # # Tokenize the prompt
+    #     # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+    #     # # Generate summary using the model
+    #     # outputs = model.generate(**inputs, max_length=1500)
+
+    #     # # Decode the generated tokens into text
+    #     # summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    #     # Generate summary (ensuring dtype is set correctly)
+    #     with torch.no_grad():
+    #         summary = generate_summary(prompt, model, tokenizer)
 
     return summary
-
-
-# def analyze_dialogue(file_path, model, tokenizer):
-#     """
-#     Analyze dialogue data and generate a summary.
-
-#     Args:
-#         file_path (str or Path): Path to the input file (CSV or JSON).
-#         model: The language model for summarization.
-#         tokenizer: The tokenizer for the language model.
-
-#     Returns:
-#         str: A summary of the dialogue.
-#     """
-#     # Load dialogue data
-#     dialogue_data = load_dialogue_data(file_path)
-
-#     dialogue_text = format_dialogue_for_summary(df)
-#     # Format dialogue for input
-#     dialogue_text = "\n".join(
-#         [
-#             f"{row['speaker']} ({row['start_time']}-{row['end_time']}): {row['transcription']}"
-#             for _, row in dialogue_data.iterrows()
-#         ]
-#     )
-
-#     # Refine the prompt for better summarization
-#     prompt = (
-#         "Summarize the following dialogue and extract the main topics. "
-#         "Identify the key points discussed by each speaker and provide a concise summary.\n\n"
-#         f"{dialogue_text}"
-#     )
-
-#     # # Tokenize the prompt
-#     # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-#     # # Generate summary using the model
-#     # outputs = model.generate(**inputs, max_length=1500)
-
-#     # # Decode the generated tokens into text
-#     # summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-#     # Generate summary (ensuring dtype is set correctly)
-#     with torch.no_grad():
-#         summary = generate_summary(prompt, model, tokenizer)
-
-#     return summary
 
 
 if __name__ == "__main__":

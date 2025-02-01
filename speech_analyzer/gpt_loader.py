@@ -4,42 +4,15 @@ import openai  # For API calls
 from dotenv import load_dotenv
 
 # import torch
+# import openai
+# from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-# from speech_analyzer.dialogue_analyzer import load_dialogue_data
-# from speech_analyzer.csv_loader import load_csv_data_for_model, load_csv_for_neural_network
-# from speech_analyzer.dialogue_analyzer import run_with_multiple_gpt_versions
 
 # Load environment variables
 load_dotenv()
 
 # Example API key for OpenAI GPT
 openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# import openai
-# from transformers import AutoTokenizer, AutoModelForCausalLM
-
-
-# def load_gpt_model(api_version="gpt-3.5"):
-#     """
-#     Load GPT model either via OpenAI API or local model.
-
-#     Args:
-#         api_version (str): The version of the GPT model (e.g., gpt-3.5, gpt-4).
-
-#     Returns:
-#         tuple: GPT model and tokenizer (if local).
-#     """
-#     api_key = os.getenv("OPENAI_API_KEY")
-#     if api_key and api_version.startswith("gpt"):
-#         openai.api_key = api_key
-#         logger.info(f"Using OpenAI API for model {api_version}")
-#         return api_version, None
-#     else:
-#         logger.info(f"Using local GPT model {api_version}")
-#         model = AutoModelForCausalLM.from_pretrained(api_version)
-#         tokenizer = AutoTokenizer.from_pretrained(api_version)
-#         return model, tokenizer
 
 
 def load_gpt_model(model_version) -> tuple[AutoModelForCausalLM | None, AutoTokenizer | None]:
@@ -82,7 +55,7 @@ def call_gpt_api(prompt, model_version):
     return response.choices[0].text.strip()
 
 
-def generate_summary(prompt, model, tokenizer):
+def call_api_or_use_local(prompt, model, tokenizer):
     """
     Generate a summary using a local model or API, based on configuration.
 
@@ -130,14 +103,14 @@ def run_with_multiple_gpt_versions(prompt):
     for version in api_versions:
         print(f"Calling {version}...")
         model, tokenizer = load_gpt_model(version)
-        summary = generate_summary(prompt, model, tokenizer)
+        summary = call_api_or_use_local(prompt, model, tokenizer)
         results[version] = summary
 
     return results
 
 
 if __name__ == "__main__":
-    # Example usage of the function
+    # Example usage of the function # TODO: add df parsing from csv
     test_prompt = "Explain the key differences between supervised and unsupervised learning."
 
     # Run with multiple GPT versions

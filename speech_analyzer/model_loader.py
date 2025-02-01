@@ -22,6 +22,77 @@ USE_SAFETENSORS = env_as_bool("USE_SAFETENSORS", "True")
 USE_CPU_OFFLOAD = env_as_bool("USE_SAFETENSORS", "False")
 
 
+def load_only_one_model():
+    # TODO: to not load RAM with unused models cache in memory, also makes sure that in the end of all runs clear {USERS}/.cache
+    # return function generator - appropriate loader func
+    pass
+
+
+def load_all_models():
+    """
+    List available models for dynamic loading.
+
+    Returns:
+        dict: A dictionary of available models and their corresponding loading functions.
+    """
+    return {
+        # "vosk": lambda: load_vosk_model(), # idk
+        "gpt-3.5": lambda: load_gpt_model(api_version="gpt-3.5"),
+        "gpt-4": lambda: load_gpt_model(api_version="gpt-4"),
+        # # TODO: Unsloth loader - compiled to C (weights lesser - but need specific setup)
+        "mistral": lambda: unsloth_model_loader("mistral"),
+        # "llama": lambda: unsloth_model_loader("llama"),
+        # "falcon": unsloth_model_loader(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
+        # "deepseek": unsloth_model_loader(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
+        # Classic loader
+        # "llama": load_language_model(os.getenv("LLAMA_MODEL_NAME"), os.getenv("LLAMA_MODEL_PATH")),
+        "mistral-hf": hugginface_model_loader(
+            os.getenv("MISTRAL_MODEL_NAME"), os.getenv("MISTRAL_MODEL_PATH")
+        ),
+        # "falcon": load_language_model(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
+        # "deepseek": load_language_model(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
+        # Add more models as needed
+        "stable_diffusion": load_stable_diffusion_model(),
+    }
+
+
+def load_model_object(model_name_key: str) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
+    load_dotenv()
+    models = {
+        "vosk": load_vosk_model(),
+        "llama": hugginface_model_loader(os.getenv("LLAMA_MODEL_NAME"), os.getenv("LLAMA_MODEL_PATH")),
+        "mistral": hugginface_model_loader(os.getenv("MISTRAL_MODEL_NAME"), os.getenv("MISTRAL_MODEL_PATH")),
+        "falcon": hugginface_model_loader(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
+        "deepseek": hugginface_model_loader(
+            os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")
+        ),
+        "stable_diffusion": load_stable_diffusion_model(),
+    }
+    # if model_name_key == 'vosk':
+    #     return models["vosk"].value
+    if model_name_key == models[model_name_key]:
+        return models[model_name_key][0], models[model_name_key][1]
+    else:
+        return logger.debug("Not a valid model key")
+
+
+def load_model_by_key(model_key):
+    """
+    Load the appropriate model by key.
+
+    Args:
+        model_key (str): The key to specify the model to be loaded.
+
+    Returns:
+        tuple: Loaded model and tokenizer (if applicable).
+    """
+    models = load_all_models()
+    if model_key in models:
+        return models[model_key]()
+    else:
+        raise ValueError(f"Model '{model_key}' is not available. Available options: {list(models.keys())}")
+
+
 def unsloth_model_loader(model_name_key, max_seq_length=2048, dtype=None, load_in_4bit=True):
     """
     Load a model using the unsloth library for faster and more efficient inference.
@@ -68,69 +139,6 @@ def unsloth_model_loader(model_name_key, max_seq_length=2048, dtype=None, load_i
     return model, tokenizer
 
 
-def load_all_models():
-    """
-    List available models for dynamic loading.
-
-    Returns:
-        dict: A dictionary of available models and their corresponding loading functions.
-    """
-    return {
-        "gpt-3.5": lambda: load_gpt_model(api_version="gpt-3.5"),
-        "gpt-4": lambda: load_gpt_model(api_version="gpt-4"),
-        "mistral": lambda: unsloth_model_loader("mistral"),
-        # "llama": lambda: unsloth_model_loader("llama"),
-        # "vosk": lambda: load_vosk_model(),
-        # Add more models as needed
-        # "falcon": unsloth_model_loader(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
-        # "deepseek": unsloth_model_loader(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
-        "stable_diffusion": load_stable_diffusion_model(),
-    }
-
-
-def load_model_by_key(model_key):
-    """
-    Load the appropriate model by key.
-
-    Args:
-        model_key (str): The key to specify the model to be loaded.
-
-    Returns:
-        tuple: Loaded model and tokenizer (if applicable).
-    """
-    models = load_all_models()
-    if model_key in models:
-        return models[model_key]()
-    else:
-        raise ValueError(f"Model '{model_key}' is not available. Available options: {list(models.keys())}")
-
-
-# def load_all_models():
-#     models = {
-#         # "vosk": load_vosk_model(),
-#         "llama": unsloth_model_loader(os.getenv("LLAMA_MODEL_NAME"), os.getenv("LLAMA_MODEL_PATH")),
-#         "mistral": unsloth_model_loader(os.getenv("MISTRAL_MODEL_NAME"), os.getenv("MISTRAL_MODEL_PATH")),
-#         # "falcon": unsloth_model_loader(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
-#         "deepseek": unsloth_model_loader(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
-#         "stable_diffusion": load_stable_diffusion_model(),
-#     }
-#     return models
-
-
-# Simple Loader #TODO: add variation with different loaders
-# def load_all_models():
-#     load_dotenv()
-#     models = {
-#         # "vosk": load_vosk_model(),
-#         "llama": load_language_model(os.getenv("LLAMA_MODEL_NAME"), os.getenv("LLAMA_MODEL_PATH")),
-#         # "mistral": load_language_model(os.getenv("MISTRAL_MODEL_NAME"), os.getenv("MISTRAL_MODEL_PATH")),
-#         # "falcon": load_language_model(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
-#         "deepseek": load_language_model(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
-#         "stable_diffusion": load_stable_diffusion_model(),
-#     }
-#     return models
-
-
 def load_vosk_model() -> VoskModel:
     model_path = os.getenv("VOSK_MODEL_PATH")
     model_name = os.getenv("VOSK_MODEL_NAME")
@@ -140,7 +148,7 @@ def load_vosk_model() -> VoskModel:
     return VoskModel(model_path)
 
 
-def load_language_model(model_name, model_path) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
+def hugginface_model_loader(model_name, model_path) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found at {model_path}")
 
@@ -187,24 +195,6 @@ def load_stable_diffusion_model():
 #     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)  # Move inputs to model's device
 #     outputs = model.generate(**inputs, max_length=1500)
 #     return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-
-def load_model_object(model_name_key: str) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
-    load_dotenv()
-    models = {
-        "vosk": load_vosk_model(),
-        "llama": load_language_model(os.getenv("LLAMA_MODEL_NAME"), os.getenv("LLAMA_MODEL_PATH")),
-        "mistral": load_language_model(os.getenv("MISTRAL_MODEL_NAME"), os.getenv("MISTRAL_MODEL_PATH")),
-        "falcon": load_language_model(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
-        "deepseek": load_language_model(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
-        "stable_diffusion": load_stable_diffusion_model(),
-    }
-    # if model_name_key == 'vosk':
-    #     return models["vosk"].value
-    if model_name_key == models[model_name_key]:
-        return models[model_name_key][0], models[model_name_key][1]
-    else:
-        return logger.debug("Not a valid model key")
 
 
 def generate_code(prompt):
