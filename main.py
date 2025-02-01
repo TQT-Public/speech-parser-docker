@@ -6,6 +6,7 @@ from loguru import logger
 
 from speech_analyzer.csv_loader import load_csv_data_for_model
 from speech_analyzer.dialogue_analyzer import analyze_dialogue
+from speech_analyzer.gpt_loader import load_gpt_model
 from speech_analyzer.model_loader import (
     # load_all_models,
     load_stable_diffusion_model,
@@ -87,12 +88,24 @@ def load_model_by_key(model_name_key):
     Returns:
     - tuple: (model, tokenizer) corresponding to the model_name_key.
     """
-    available_models = ["vosk", "llama", "mistral", "falcon", "deepseek", "stable_diffusion"]
+    # TODO: have list of available models keys as a config - pydantic, для простых конфигов что-то более подходящее типа гидры или pydantic
+    available_models = [
+        "gpt-4",
+        "gpt-3.5",
+        "vosk",
+        "llama",
+        "mistral",
+        "falcon",
+        "deepseek",
+        "stable_diffusion",
+    ]
     if model_name_key not in available_models:
         raise ValueError(f"Invalid model key: {model_name_key}. Available keys: {available_models}")
 
     if model_name_key in ["llama", "mistral", "falcon", "deepseek"]:
         model, tokenizer = unsloth_model_loader(model_name_key)
+    elif model_name_key in ["gpt-4", "gpt-3.5"]:
+        model, tokenizer = load_gpt_model(model_name_key)
     elif model_name_key == "stable_diffusion":
         model = load_stable_diffusion_model()
         tokenizer = None  # Stable Diffusion doesn’t use a tokenizer
@@ -107,13 +120,15 @@ def main():
     load_dotenv(".env")
 
     DRY_RUN = env_as_bool("DRY_RUN", False)
-    AUDIOWORKSPACE = env_as_path("AUDIOWORKSPACE", "./audio_parts")
+    # AUDIOWORKSPACE = env_as_path("AUDIOWORKSPACE", "./audio_parts")
     AUDIO_FILE_NAME = env_as_path("AUDIO_FILE_NAME", "ZOOM0067.wav")
     OUTPUT_DIR = env_as_path("OUTPUT_DIR", "./output")
     ENABLE_AI = env_as_bool("ENABLE_AI", "True")
 
-    csv_file = Path(AUDIOWORKSPACE) / f"{AUDIO_FILE_NAME.stem}.csv"
-    json_file = Path(AUDIOWORKSPACE) / f"{AUDIO_FILE_NAME.stem}.json"
+    # csv_file = Path(AUDIOWORKSPACE) / f"{AUDIO_FILE_NAME.stem}.csv"
+    # json_file = Path(AUDIOWORKSPACE) / f"{AUDIO_FILE_NAME.stem}.json"
+    csv_file = Path(OUTPUT_DIR) / f"{AUDIO_FILE_NAME.stem}.csv"
+    json_file = Path(OUTPUT_DIR) / f"{AUDIO_FILE_NAME.stem}.json"
 
     logger.debug(f"Current working directory: {os.getcwd()}")
     logger.debug(f"CSV file path: {csv_file}")
