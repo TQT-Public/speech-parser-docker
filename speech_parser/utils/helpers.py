@@ -1,4 +1,6 @@
 # import json
+import csv
+import json
 import os
 
 import re
@@ -24,6 +26,18 @@ CONFIG_FILE = Path(VOSK_MODEL_FULL_PATH_ENV, "conf", "model.conf")
 # CONFIG_FILE = os.path.join(VOSK_MODEL_FULL_PATH_ENV, "conf", "model.conf")
 # DEFAULT_CONFIG_FILE = os.path.join(VOSK_MODEL_FULL_PATH_ENV, "conf", "model_default.config")
 DEFAULT_CONFIG_FILE = Path(CONFIG_PATH_ENV, "model_default.config")
+
+
+def create_empty_csv_and_json_if_not_exists(csv_file_path: str, json_file_path: str):
+    if not os.path.exists(csv_file_path):
+        with open(csv_file_path, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["speaker", "transcription", "start_time", "end_time"])
+        print(f"Created empty CSV file: {csv_file_path}")
+    if not os.path.exists(json_file_path):
+        with open(json_file_path, mode="w", encoding="utf-8") as f:
+            json.dump([], f, ensure_ascii=False, indent=4)
+        print(f"Created empty JSON file: {json_file_path}")
 
 
 def parse_config_file(config_file_path):

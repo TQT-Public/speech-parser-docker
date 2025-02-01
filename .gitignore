@@ -1,5 +1,6 @@
 ".env"
 .env
+.vscode
 output/
 audio_files/*
 !audio_files/ZOOM0067_converted.mp3
