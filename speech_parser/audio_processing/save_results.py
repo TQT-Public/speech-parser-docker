@@ -15,7 +15,7 @@ def save_filtered_dialogue(speaker_transcription, audio_name, output_dir):
     logger.debug(f"Filtered dialogue saved to: {filtered_file}")
 
 
-def save_summary(summary, audio_name, output_dir):
+def save_summary(summary, audio_name, output_dir, ai_model_key="gpt-3.5"):
     """
     Save the summary of the dialogue to a file.
 
@@ -32,7 +32,7 @@ def save_summary(summary, audio_name, output_dir):
     os.makedirs(summary_dir, exist_ok=True)
 
     # Define the summary file path
-    summary_file = os.path.join(summary_dir, "summary.txt")
+    summary_file = os.path.join(summary_dir, f"{ai_model_key}_summary.txt")
 
     # Handle different input types
     with open(summary_file, "w", encoding="utf-8") as f:
@@ -57,7 +57,13 @@ def save_summary(summary, audio_name, output_dir):
                 f"Unsupported summary type: {type(summary)}. Expected str, list, or list of dicts."
             )
 
-    logger.debug(f"Discussion summary saved to: {summary_file}")
+    logger.debug(f"Discussion summary made by {ai_model_key} saved to: {summary_file}")
+
+
+# import os
+# import csv
+# import json
+# from loguru import logger
 
 
 def save_transcription_results(speaker_transcription, audio_name, output_dir, csv_file, json_file, rttm_file):
@@ -72,9 +78,19 @@ def save_transcription_results(speaker_transcription, audio_name, output_dir, cs
     speaker_transcription.sort(key=lambda x: x["start_time"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Log the transcription data
+    logger.debug(f"Transcription Data: {speaker_transcription}")
+
+    # Ensure no empty transcriptions are saved
+    speaker_transcription = [segment for segment in speaker_transcription if segment.get("transcription")]
+
+    # Check if transcription is empty before saving
+    if not speaker_transcription:
+        logger.warning("No valid transcriptions found. Not saving empty results.")
+        return
+
     # Save CSV
     csv_file = output_dir / f"{audio_name}.csv"
-    # Save the results to a CSV file
     with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=["speaker", "transcription", "start_time", "end_time"])
         writer.writeheader()
@@ -83,11 +99,40 @@ def save_transcription_results(speaker_transcription, audio_name, output_dir, cs
 
     # Save JSON
     json_file = output_dir / f"{audio_name}.json"
-    # Save the results to a JSON file
     with open(json_file, mode="w", encoding="utf-8") as json_file:
         json.dump(speaker_transcription, json_file, ensure_ascii=False, indent=4)
 
     logger.info(f"Files saved: {csv_file}, {json_file}, {rttm_file}")
+
+
+# def save_transcription_results(speaker_transcription, audio_name, output_dir, csv_file, json_file, rttm_file):
+#     """
+#     Save transcription results to CSV, JSON, and RTTM files.
+#     Args:
+#         transcription_data (list): List of transcription results.
+#         audio_name (str): Name of the audio file (without extension).
+#         output_dir (Path): Directory to save the results.
+#     """
+#     # Sort segments by start_time to ensure linear timeline
+#     speaker_transcription.sort(key=lambda x: x["start_time"])
+#     output_dir.mkdir(parents=True, exist_ok=True)
+
+#     # Save CSV
+#     csv_file = output_dir / f"{audio_name}.csv"
+#     # Save the results to a CSV file
+#     with open(csv_file, mode="w", newline="", encoding="utf-8") as csv_file:
+#         writer = csv.DictWriter(csv_file, fieldnames=["speaker", "transcription", "start_time", "end_time"])
+#         writer.writeheader()
+#         for row in speaker_transcription:
+#             writer.writerow(row)
+
+#     # Save JSON
+#     json_file = output_dir / f"{audio_name}.json"
+#     # Save the results to a JSON file
+#     with open(json_file, mode="w", encoding="utf-8") as json_file:
+#         json.dump(speaker_transcription, json_file, ensure_ascii=False, indent=4)
+
+#     logger.info(f"Files saved: {csv_file}, {json_file}, {rttm_file}")
 
 
 # def save_transcription_results(speaker_transcription, csv_file, json_file, rttm_file):

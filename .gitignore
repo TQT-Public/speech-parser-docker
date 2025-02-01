@@ -1,6 +1,16 @@
 ".env"
 .env
 output/
+audio_files/*
+!audio_files/ZOOM0067_converted.mp3
+!audio_files/ZOOM0067_converted.rttm
+!audio_files/ZOOM0067_converted.wav
+!audio_files/ZOOM0067.csv
+!audio_files/ZOOM0067_example_batch.csv
+!audio_files/ZOOM0067_example_split.csv
+!audio_files/ZOOM0067.json
+sources/*
+!sources/ZOOM0067.wav
 audio_files/parts/
 ./models/vosk-model-*
 models/vosk-model-ru-0.42

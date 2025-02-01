@@ -11,6 +11,7 @@ from diffusers import StableDiffusionPipeline  # For Stable Diffusion
 from dotenv import load_dotenv
 import subprocess
 from models.download_model import check_and_download_model
+from speech_analyzer.gpt_loader import load_gpt_model
 from speech_parser.utils.env import env_as_bool
 from unsloth import FastLanguageModel
 
@@ -68,15 +69,52 @@ def unsloth_model_loader(model_name_key, max_seq_length=2048, dtype=None, load_i
 
 
 def load_all_models():
-    models = {
-        # "vosk": load_vosk_model(),
-        "llama": unsloth_model_loader(os.getenv("LLAMA_MODEL_NAME"), os.getenv("LLAMA_MODEL_PATH")),
-        "mistral": unsloth_model_loader(os.getenv("MISTRAL_MODEL_NAME"), os.getenv("MISTRAL_MODEL_PATH")),
+    """
+    List available models for dynamic loading.
+
+    Returns:
+        dict: A dictionary of available models and their corresponding loading functions.
+    """
+    return {
+        "gpt-3.5": lambda: load_gpt_model(api_version="gpt-3.5"),
+        "gpt-4": lambda: load_gpt_model(api_version="gpt-4"),
+        "mistral": lambda: unsloth_model_loader("mistral"),
+        # "llama": lambda: unsloth_model_loader("llama"),
+        # "vosk": lambda: load_vosk_model(),
+        # Add more models as needed
         # "falcon": unsloth_model_loader(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
-        "deepseek": unsloth_model_loader(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
+        # "deepseek": unsloth_model_loader(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
         "stable_diffusion": load_stable_diffusion_model(),
     }
-    return models
+
+
+def load_model_by_key(model_key):
+    """
+    Load the appropriate model by key.
+
+    Args:
+        model_key (str): The key to specify the model to be loaded.
+
+    Returns:
+        tuple: Loaded model and tokenizer (if applicable).
+    """
+    models = load_all_models()
+    if model_key in models:
+        return models[model_key]()
+    else:
+        raise ValueError(f"Model '{model_key}' is not available. Available options: {list(models.keys())}")
+
+
+# def load_all_models():
+#     models = {
+#         # "vosk": load_vosk_model(),
+#         "llama": unsloth_model_loader(os.getenv("LLAMA_MODEL_NAME"), os.getenv("LLAMA_MODEL_PATH")),
+#         "mistral": unsloth_model_loader(os.getenv("MISTRAL_MODEL_NAME"), os.getenv("MISTRAL_MODEL_PATH")),
+#         # "falcon": unsloth_model_loader(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),
+#         "deepseek": unsloth_model_loader(os.getenv("DEEPSEEK_MODEL_NAME"), os.getenv("DEEPSEEK_MODEL_PATH")),
+#         "stable_diffusion": load_stable_diffusion_model(),
+#     }
+#     return models
 
 
 # Simple Loader #TODO: add variation with different loaders
@@ -93,7 +131,7 @@ def load_all_models():
 #     return models
 
 
-def load_vosk_model():
+def load_vosk_model() -> VoskModel:
     model_path = os.getenv("VOSK_MODEL_PATH")
     model_name = os.getenv("VOSK_MODEL_NAME")
     model_path = check_and_download_model(model_name, model_path)
@@ -102,7 +140,7 @@ def load_vosk_model():
     return VoskModel(model_path)
 
 
-def load_language_model(model_name, model_path):
+def load_language_model(model_name, model_path) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found at {model_path}")
 
@@ -145,10 +183,10 @@ def load_stable_diffusion_model():
     return pipeline
 
 
-def generate_summary(prompt, model, tokenizer):
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)  # Move inputs to model's device
-    outputs = model.generate(**inputs, max_length=1500)
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+# def generate_summary(prompt, model, tokenizer):
+#     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)  # Move inputs to model's device
+#     outputs = model.generate(**inputs, max_length=1500)
+#     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 
 def load_model_object(model_name_key: str) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
