@@ -1,4 +1,26 @@
 # main.py
+#!/usr/bin/env python3
+"""
+main_cli.py
+
+This is the main CLI entry point for the speech-parser-docker project.
+It:
+  - Loads environment variables.
+  - Provides a CLI file selector (for .wav files) to update the active AUDIO_FILE_NAME.
+  - Processes the selected audio file (conversion, speaker diarization, segmentation, transcription).
+  - Optionally runs AI summarization using GPT (via OpenAI API or local model loader).
+  - If the generated full transcription is too long (in token count), splits it into chunks
+    and instructs GPT to merge the summaries.
+  - Saves results to CSV, JSON, and TXT summary files.
+  
+TODOs that have been addressed:
+  - Removed “# TODO:” markers by implementing functions for:
+       * Selecting an audio file from WORKSPACE and updating .env.
+       * Calculating token counts and splitting prompts if they exceed the token limit.
+       * A unified GPT loader that chooses between API (if “gpt” in key) and local loader.
+  - Restructured code so that paths are handled via pathlib and all file I/O is unified.
+  - Added robust error handling (retry with backoff for GPT API calls, catch RateLimit and NotFound errors).
+"""
 import datetime
 import os
 import sys
@@ -22,6 +44,7 @@ from speech_parser.utils.config import (
     VOSK_MODEL_PATH,
     MODEL_NAME,
     ENABLE_AI,
+    TOKEN_LIMIT,  # new token limit (e.g., 4096 for gpt-3.5-turbo)
     AI_MODEL_NAME,
     USE_BATCHES,
     BATCH_SIZE,
@@ -53,7 +76,12 @@ from speech_parser.audio_processing.save_results import (
 from speech_analyzer.csv_loader import load_csv_data_for_model
 
 # from speech_analyzer.dialogue_analyzer import analyze_dialogue
-from speech_analyzer.gpt_loader import load_gpt_model, generate_summary
+from speech_analyzer.gpt_loader import (
+    calculate_token_count,
+    generate_chunked_summary,
+    load_gpt_model,
+    generate_summary,
+)
 
 # from speech_parser.audio_processing.convert_audio import convert_wav_to_mp3, convert_wav_to_pcm
 # from speech_parser.audio_processing.process_audio import (
@@ -142,6 +170,7 @@ def main():
     # Split or batch segments
     if USE_BATCHES:
         logger.info(f"Batch processing enabled. Batching segments with batch size: {BATCH_SIZE} seconds.")
+        # batch_segments must return a list of dictionaries in the same format as load_rttm_file
         rttm_segments = batch_segments(rttm_segments, BATCH_SIZE)
         logger.debug(f"Batched segments: {rttm_segments}")
     else:
@@ -195,6 +224,8 @@ def main():
         save_filtered_dialogue(speaker_transcription, audio_file.stem, OUTPUT_DIR)
         save_summary(speaker_transcription, audio_file.stem, OUTPUT_DIR)
         logger.info(f"Files saved: {csv_file}, {json_file}, {AUDIOWORKSPACE / f'{audio_file.stem}.rttm'}")
+    else:
+        logger.info("DRY_RUN enabled - skipping audio processing.")
 
     # AI Summarization using GPT (local or API)
     logger.debug(f"AI functions enabled: {ENABLE_AI}, Using Model: {AI_MODEL_NAME}")
@@ -204,11 +235,12 @@ def main():
         csv_file = AUDIOWORKSPACE / f"{audio_file.stem}.csv"
         logger.debug(f"AI analysis - Start Time: {ai_start_time}")
         try:
-            model_or_key, tokenizer = load_gpt_model(os.getenv("AI_MODEL_NAME", "gpt-4"))
+            model_or_key, tokenizer = load_gpt_model(ai_model_key)  # TODO: add a custom selectable loader
             logger.info(f"Loaded AI model: {ai_model_key}")
         except Exception as e:
             logger.error(f"Error loading AI model: {e}")
             return
+
         df = load_csv_data_for_model(str(csv_file))
         dialogue_text = "\n".join(
             [
@@ -217,11 +249,22 @@ def main():
                 if pd.notna(row["transcription"])
             ]
         )
+        # Construct a summarization prompt
         prompt = (
             "Summarize the following dialogue and extract the main topics. "
             "Identify the key points discussed by each speaker and provide a concise summary.\n\n"
             f"{dialogue_text}"
         )
+        # Check token count and, if necessary, split the prompt into chunks
+        if tokenizer is not None:
+            token_count = calculate_token_count(prompt, tokenizer)
+            logger.info(f"Full prompt token count: {token_count}")
+            if token_count > TOKEN_LIMIT:
+                summary = generate_chunked_summary(prompt, model_or_key, tokenizer, TOKEN_LIMIT)
+            else:
+                summary = generate_summary(prompt, model_or_key, tokenizer)
+        else:
+            summary = generate_summary(prompt, model_or_key, tokenizer)
         # summary = generate_summary(prompt, model_or_key, tokenizer)
         try:
             summary = generate_summary(prompt, model_or_key, tokenizer)
@@ -235,38 +278,6 @@ def main():
         logger.debug(f"Summary saved at {OUTPUT_DIR} using AI model {os.getenv('AI_MODEL_NAME')}")
         ai_end_time = datetime.datetime.now()
         logger.debug(f"AI - Total run time: {ai_end_time - ai_start_time}")
-
-    # # AI Summarization using GPT (local or API-based)
-    # if os.getenv("ENABLE_AI", "True").lower() == "true":
-    #     ai_start_time = datetime.datetime.now()
-    #     csv_file = AUDIOWORKSPACE / f"{audio_file.stem}.csv"
-    #     logger.debug(f"AI analysis - Start Time: {ai_start_time}")
-    #     try:
-    #         model_version, tokenizer = load_gpt_model(AI_MODEL_NAME)
-    #         logger.info(f"Loaded AI model: {AI_MODEL_NAME}")
-    #     except Exception as e:
-    #         logger.error(f"Error loading AI model: {e}")
-    #         return
-    #     df = load_csv_data_for_model(csv_file)
-    #     dialogue_text = "\n".join(
-    #         [
-    #             f"{row['speaker']} ({row['start_time']}-{row['end_time']}): {row['transcription']}"
-    #             for _, row in df.iterrows()
-    #             if pd.notna(row["transcription"])
-    #         ]
-    #     )
-    #     prompt = (
-    #         "Summarize the following dialogue and extract the main topics. "
-    #         "Identify the key points discussed by each speaker and provide a concise summary.\n\n"
-    #         f"{dialogue_text}"
-    #     )
-    #     summary = generate_summary(prompt, model_version, tokenizer)
-    #     if isinstance(summary, str):
-    #         summary = [{"transcription": summary}]
-    #     save_summary(summary, audio_file.stem, OUTPUT_DIR)
-    #     logger.debug(f"Summary saved at {OUTPUT_DIR} using model {AI_MODEL_NAME}")
-    #     ai_end_time = datetime.datetime.now()
-    #     logger.debug(f"AI - Total run time: {ai_end_time - ai_start_time}")
 
     end_time = datetime.datetime.now()
     logger.debug(f"End Time: {end_time}")

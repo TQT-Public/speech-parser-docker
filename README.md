@@ -635,7 +635,9 @@ Update `.env` variables
     pip install vosk diffusers pydub
     ```
 
-### **Steps to Retrieve an OpenAI API Key**
+## **Steps to Retrieve an OpenAI API Key**
+
+### 1. **OpenAI API key**
 
 1. **Create an OpenAI Account**:
 
@@ -672,3 +674,21 @@ Update `.env` variables
             load_dotenv()
             openai.api_key = os.getenv("OPENAI_API_KEY")
             ```
+
+### 2. **DeepSeek API Integration**
+
+Let’s implement the DeepSeek API handling based on the structure you provided for GPT calls. Since DeepSeek's API documentation isn’t publicly available, we will create a general example that can be adapted once you have the exact API documentation.
+
+### Steps to Obtain DeepSeek API Key
+
+1. **Sign Up for DeepSeek**:
+
+    - Visit [DeepSeek's website](https://deepseek.com).
+    - Register an account.
+    - Navigate to your account settings or API dashboard.
+    - Obtain your API key, which will be needed to authenticate your requests.
+
+2. **Activate API Access**:
+
+    - You might need to enable API access from your account dashboard.
+    - Copy the API key and securely store it for your project.

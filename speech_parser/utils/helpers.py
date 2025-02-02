@@ -10,6 +10,7 @@ from loguru import logger
 import shutil
 
 from dotenv import load_dotenv
+import pandas as pd
 
 from speech_parser.utils.env import env_as_float, env_as_int, env_as_path, env_as_str
 
@@ -26,6 +27,26 @@ CONFIG_FILE = Path(VOSK_MODEL_FULL_PATH_ENV, "conf", "model.conf")
 # CONFIG_FILE = os.path.join(VOSK_MODEL_FULL_PATH_ENV, "conf", "model.conf")
 # DEFAULT_CONFIG_FILE = os.path.join(VOSK_MODEL_FULL_PATH_ENV, "conf", "model_default.config")
 DEFAULT_CONFIG_FILE = Path(CONFIG_PATH_ENV, "model_default.config")
+
+
+def format_dialogue_for_summary(df):
+    """
+    Format the dialogue data for summarization by combining speaker, transcription, and timestamps.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing dialogue data with 'speaker', 'transcription', 'start_time', and 'end_time'.
+
+    Returns:
+        str: A formatted dialogue string for use as a prompt for language models.
+    """
+    dialogue_text = "\n".join(
+        [
+            f"{row['speaker']} ({row['start_time']}-{row['end_time']}): {row['transcription']}"
+            for _, row in df.iterrows()
+            if pd.notna(row["transcription"])
+        ]
+    )
+    return dialogue_text
 
 
 def create_empty_csv_and_json_if_not_exists(csv_file_path: str, json_file_path: str):

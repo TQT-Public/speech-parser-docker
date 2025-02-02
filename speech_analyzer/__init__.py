@@ -22,7 +22,14 @@ from .csv_loader import (
     load_csv_for_neural_network,
 )
 
-from .gpt_loader import load_gpt_model, call_gpt_api, call_api_or_use_local, run_with_multiple_gpt_versions
+from .gpt_loader import (
+    load_gpt_model,
+    call_gpt_api,
+    calculate_token_count,
+    generate_chunked_summary,
+    call_api_or_use_local,
+    run_with_multiple_gpt_versions,
+)
 from .model_loader import (
     unsloth_model_loader,
     load_all_models,
@@ -35,3 +42,5 @@ from .model_loader import (
     load_command_generator,
     cmd_loader,
 )
+
+from .call_api import call_deepseek_api
