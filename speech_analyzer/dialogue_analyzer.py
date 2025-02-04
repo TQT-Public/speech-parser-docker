@@ -166,7 +166,7 @@ def analyze_dialogue(file_path, model, tokenizer):
     Returns:
         str: A summary of the dialogue.
     """
-    # Load dialogue data (replace this with actual loading function) # TODO: fix
+    # Load dialogue data (replace this with actual loading function)
     dialogue_data = load_dialogue_data(file_path)
     dialogue_text = "\n".join(
         [
@@ -200,7 +200,7 @@ def analyze_dialogue(file_path, model, tokenizer):
         f"{dialogue_text}"
     )
 
-    # Generate summary (ensuring dtype is set correctly) # TODO: add loading several variats of loaders and types of summarizing functions. Make a class: ModelLoaderClass, and SummaRizor
+    # Generate summary (ensuring dtype is set correctly) # TODO: add loading several variants of loaders and types of summarizing functions. Make a class: ModelLoaderClass, and SummaRizor
     summary = generate_summary(prompt, model, tokenizer)
     #     # # Tokenize the prompt
     #     # inputs = tokenizer(prompt, return_tensors="pt").to(model.device)

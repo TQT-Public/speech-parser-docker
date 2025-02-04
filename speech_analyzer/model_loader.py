@@ -39,7 +39,7 @@ def load_all_models():
         # "vosk": lambda: load_vosk_model(), # idk
         "gpt-3.5": lambda: load_gpt_model(api_version="gpt-3.5"),
         "gpt-4": lambda: load_gpt_model(api_version="gpt-4"),
-        # # TODO: Unsloth loader - compiled to C (weights lesser - but need specific setup)
+        # # NOTE: Unsloth loader - compiled to C (weights lesser - but need specific setup)
         "mistral": lambda: unsloth_model_loader("mistral"),
         # "llama": lambda: unsloth_model_loader("llama"),
         # "falcon": unsloth_model_loader(os.getenv("FALCON_MODEL_NAME"), os.getenv("FALCON_MODEL_PATH")),

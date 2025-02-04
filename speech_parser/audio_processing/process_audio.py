@@ -85,8 +85,8 @@ def transcribe_audio_vosk(audio_file, model):
     setup_vosk_logging()  # Configure Vosk logs
 
     with wave.open(audio_file, "rb") as wf:
-        # model = vosk.Model(str(model))  # Re-initialization of Vosk #TODO: fix
-        print(model)  # TODO: clear legacy
+        # model = vosk.Model(str(model))  # Re-initialization of Vosk #NOTE: remove
+        print(model)
 
         # Use the function where you're processing the audio
         rec = setup_vosk_gpu(VOSK_MODEL_FULL_PATH_ENV)  # GPU or CPU mode based on flag
@@ -207,11 +207,6 @@ def prepare_segment_data(rttm_segments, model_path, total_audio_length, audio_na
             start_time = segment["start_time"]
             end_time = segment["end_time"]
 
-            # TODO: fix
-            # audio_segment_file_path = Path(
-            #     str(output_dir), f"{audio_name}_{segment['speaker']}_part{segment_num + 1}.wav"
-            # )
-
             # Construct the full path for the segment file
             audio_segment_file_path = Path(output_dir) / f"{audio_name}_{speaker}_part{segment_num + 1}.wav"
             audio_segment_file_path.resolve()
@@ -264,11 +259,6 @@ def split_audio_by_segments(audio_file, rttm_segments, output_dir, speaker_name_
             if speaker_name_map and speaker in speaker_name_map:
                 speaker = speaker_name_map[speaker]
 
-            # TODO: fix
-            # Generate the output filename using the assigned speaker name
-            # audio_segment_file_path = Path(
-            #     str(output_dir), f"{audio_file.stem}_{speaker}_part{segment_num + 1}.wav"
-            # )
             # Construct the full path for the segment file
             audio_segment_file_path = (
                 Path(output_dir) / f"{audio_file.stem}_{speaker}_part{segment_num + 1}.wav"

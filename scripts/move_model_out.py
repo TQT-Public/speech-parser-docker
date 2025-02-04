@@ -13,7 +13,7 @@ def move_model_out(model_name):
     # source_base = Path("./models")
     # dest_base = Path("I:/DEV/models")
 
-    MODEL_ENABLE_COPY = env_as_bool("MODEL_ENABLE_COPY", "True")  # TODO: copy=0, delete=1 simply deletes
+    MODEL_ENABLE_COPY = env_as_bool("MODEL_ENABLE_COPY", "True")  # NOTE: copy=0, delete=1 simply deletes
     MOVE_DELETE = env_as_bool("MODEL_MOVE_AND_DELETE", "False")
 
     source_base = env_as_path("MODEL_DIR", "./models")

@@ -34,7 +34,7 @@ def convert_wav_to_pcm(audio_file):
     output_path = audio_file.parent / output_file
     command = [
         "ffmpeg",
-        "-y",  # Add this flag to automatically overwrite existing files #TODO: remove
+        "-y",  # Add this flag to automatically overwrite existing files #NOTE: remove
         "-i",
         str(audio_file),
         "-ac",

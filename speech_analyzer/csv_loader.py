@@ -208,7 +208,6 @@ if __name__ == "__main__":
 
     # X, Y = load_csv_for_neural_network(csv_file_path, target_column="transcription")
     # Load data for neural networks
-    # TODO: fix KeyError: "['transcription'] not found in axis"
     # X, Y = load_csv_for_neural_network(csv_file_path, target_column="transcription")
     # logger.debug(f"\nTensor Data: X={X}, Y={Y}")
     # # logger.debug("\nTensor transcription Data:")
