@@ -1,0 +1,32 @@
+name: myenv
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11
+  - cudatoolkit=11.8
+  - pytorch=2.0.1
+  - transformers
+  - ffmpeg
+  - pip
+  - pip:
+      - unsloth
+      - loguru
+      - python-dotenv
+      - torchaudio
+      - pandas
+      - numpy
+      - scipy
+      - matplotlib
+      - plotly
+      - scikit-learn
+      - pydub
+      - pyannote-audio
+      - aiohttp
+      - vosk
+      - nltk
+      - rake-nltk
+      - requests
+      - diffusers
+      - anthropic
+      - deepseek

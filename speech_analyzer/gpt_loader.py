@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from speech_analyzer.call_api import call_deepseek_api
+from speech_analyzer.loader import APIModuleLoader, LLMLocalLoader
 from speech_parser.utils.env import env_as_int
 
 # from openai._exceptions import (
@@ -151,6 +151,7 @@ def call_gpt_api_retry(prompt: str, model_version: str, retries=5):
             return response.choices[0].message["content"].strip()
 
         except openai._exceptions.RateLimitError as e:
+            logger.info(e)
             logger.warning(
                 f"Rate limit exceeded. Retrying in {2 ** attempt} seconds... (Attempt {attempt + 1}/{retries})"
             )
@@ -162,6 +163,7 @@ def call_gpt_api_retry(prompt: str, model_version: str, retries=5):
             logger.error(f"Invalid request error: {e}")
             return "Invalid request error"
         except openai._exceptions.PermissionDeniedError as e:
+            logger.info(e)
             logger.error(f"Permission denied. Retrying in {2 ** attempt} seconds...")
             time.sleep(2**attempt)
         except Exception as e:
@@ -195,23 +197,43 @@ def call_gpt_old_api(prompt: str, model_version: str) -> str:
     return response.choices[0].message["content"].strip()
 
 
-def load_gpt_model(model_key: str):
+def load_gpt_model(model_key: str, load_type: str = "api", token: str = None):
     """
-    Generator function to load a GPT model.
-    If the key contains 'gpt', use OpenAI API; otherwise, use a local Hugging Face loader.
+    Generator function to load a GPT model or a local model.
+    If the model key contains 'gpt', use OpenAI API. Otherwise, load a local model.
     """
-    if "gpt" in model_key.lower():
-        # For OpenAI API calls, we just return the model key and a GPT2 tokenizer as an example.
-        tokenizer = AutoTokenizer.from_pretrained("gpt2")
-        # tokenizer = AutoTokenizer.from_pretrained(model_key)
-        return model_key, tokenizer
-        return model_key, None
+    if load_type == "api":
+        if "gpt" in model_key.lower():
+            # For OpenAI API calls, return the model key and GPT2 tokenizer as an example
+            tokenizer = AutoTokenizer.from_pretrained("gpt2")
+            return model_key, tokenizer
+        else:
+            # Use our APIModuleLoader for non-GPT API models (e.g., Gemini, Claude, etc.)
+            api_loader = APIModuleLoader(model_key, api_key=token)
+            return api_loader, None
     else:
-        # Here you can add your custom loader (e.g. unsloth_loader or huggingface_loader)
-        # from transformers import AutoModelForCausalLM, AutoTokenizer
-        model = AutoModelForCausalLM.from_pretrained(model_key)
-        tokenizer = AutoTokenizer.from_pretrained(model_key)
-        return model, tokenizer
+        # Load a local model using either Unsloth or Huggingface loaders
+        local_loader = LLMLocalLoader(token)
+        return local_loader.load_local_model(model_key)
+
+
+# def load_gpt_model(model_key: str):
+#     """
+#     Generator function to load a GPT model.
+#     If the key contains 'gpt', use OpenAI API; otherwise, use a local Hugging Face loader.
+#     """
+#     if "gpt" in model_key.lower():
+#         # For OpenAI API calls, we just return the model key and a GPT2 tokenizer as an example.
+#         tokenizer = AutoTokenizer.from_pretrained("gpt2")
+#         # tokenizer = AutoTokenizer.from_pretrained(model_key)
+#         return model_key, tokenizer
+#         return model_key, None
+#     else:
+#         # Here you can add your custom loader (e.g. unsloth_loader or huggingface_loader)
+#         # from transformers import AutoModelForCausalLM, AutoTokenizer
+#         model = AutoModelForCausalLM.from_pretrained(model_key)
+#         tokenizer = AutoTokenizer.from_pretrained(model_key)
+#         return model, tokenizer
 
 
 def load_or_call_gpt_model(model_version) -> tuple[AutoModelForCausalLM | None, AutoTokenizer | None]:
@@ -293,37 +315,35 @@ def run_with_multiple_gpt_versions(prompt):
     return results
 
 
-def generate_summary(prompt: str, model_or_key, tokenizer) -> str:
+def generate_summary(prompt: str, model_or_key, tokenizer):
     """
-    Generate a summary of the given prompt using either an OpenAI API model or a local model.
+    Generate a summary of the given prompt using either an API model or a local model.
 
     Args:
         prompt (str): The text prompt to summarize.
-        model_or_key: Either a string (model key for OpenAI) or a local model object.
-        tokenizer: The tokenizer corresponding to the model.
+        model_or_key: Either an API model object (APIModuleLoader) or a local model object.
+        tokenizer: The tokenizer corresponding to the model (or None for API models).
 
     Returns:
         str: The generated summary text.
     """
-    if isinstance(model_or_key, str) and "gpt" in model_or_key.lower():
-        # Call the API version
-        return call_gpt_api(prompt, model_or_key)
-    # TODO: add all supported model
-    elif "deepseek" in model_or_key.lower():
-        return call_deepseek_api(prompt, model_or_key)
-    else:
-        # Use the local model to generate text
-        # (Make sure the model is on the correct device)
-        device = next(model_or_key.parameters()).device
-        inputs = tokenizer(prompt, return_tensors="pt").to(device)
-        outputs = model_or_key.generate(**inputs, max_length=1500)
-        return tokenizer.decode(outputs[0], skip_special_tokens=True)
+    # Check if model_or_key is an API model (i.e., instance of APIModuleLoader)
+    if isinstance(model_or_key, APIModuleLoader):
+        if "gpt" in model_or_key.model_name.lower():
+            return call_gpt_api(prompt, model_or_key.model_name)  # API call for GPT models
+        elif "gemini" in model_or_key.model_name.lower():
+            return model_or_key.call_api(prompt)  # Google Gemini API
+        elif "deepseek" in model_or_key.model_name.lower():
+            return model_or_key.call_api(prompt)  # DeepSeek API
+
+    # Otherwise, it's a local model (e.g., Hugging Face or Unsloth)
+    logger.info("Using local model for summary generation.")
+    device = next(model_or_key.parameters()).device
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    outputs = model_or_key.generate(**inputs, max_length=1500)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
 
-# Additional helper functions for GPT token counting and prompt splitting
-
-
-# -- Variant #1
 def split_prompt_into_batches(prompt, tokenizer, token_limit=env_as_int("TOKEN_LIMIT", "4096")):
     """
     Splits the transcriptions (which may not contain punctuation) into manageable batches based on token limits.
@@ -363,102 +383,12 @@ def split_prompt_into_batches(prompt, tokenizer, token_limit=env_as_int("TOKEN_L
     return batches
 
 
-# def split_prompt_into_batches(prompt: str, tokenizer, token_limit: int):
-#     """
-#     Splits a prompt into multiple smaller batches such that each batch
-#     has fewer tokens than the specified token_limit.
-
-#     Args:
-#         prompt (str): The full prompt text to be split.
-#         tokenizer: A tokenizer instance used to count tokens (e.g., from HuggingFace).
-#         token_limit (int): The maximum number of tokens allowed in a single batch.
-
-#     Returns:
-#         List[str]: A list of smaller prompt chunks, each within the token limit.
-#     """
-#     sentences = prompt.split(". ")  # Split by sentence (modify this for stricter splits)
-#     batches = []
-#     current_batch = []
-#     current_token_count = 0
-
-#     for sentence in sentences:
-#         # Add a sentence to the current batch and check if it's within the token limit
-#         sentence_with_period = sentence + ". "
-#         tokens_in_sentence = len(tokenizer.encode(sentence_with_period))
-
-#         if current_token_count + tokens_in_sentence > token_limit:
-#             # If adding this sentence exceeds the token limit, finalize the current batch
-#             batches.append("".join(current_batch))
-#             # Start a new batch
-#             current_batch = [sentence_with_period]
-#             current_token_count = tokens_in_sentence
-#         else:
-#             # Otherwise, add the sentence to the current batch
-#             current_batch.append(sentence_with_period)
-#             current_token_count += tokens_in_sentence
-
-#     # Add the final batch (if any)
-#     if current_batch:
-#         batches.append("".join(current_batch))
-
-#     return batches
-
-
-# -- Variant #1
 def calculate_token_count(text: str, tokenizer) -> int:
     """
     Calculate the number of tokens in a given text using the specified tokenizer.
     """
     tokens = tokenizer.encode(text)
     return len(tokens)
-
-
-# -- Variant #2
-def calculate_token_count(prompt, tokenizer):
-    """
-    Calculate the number of tokens in the prompt using the specified tokenizer.
-    """
-    tokens = tokenizer(prompt)
-    return len(tokens["input_ids"])
-
-
-# -- Variant #2
-def split_prompt_into_batches(prompt, tokenizer, token_limit=env_as_int("TOKEN_LIMIT", "4096")):
-    """
-    Splits a prompt into multiple batches based on token limit.
-
-    Args:
-        prompt (str): The full transcription.
-        tokenizer: The tokenizer used for counting tokens.
-        token_limit (int): The maximum number of tokens per batch.
-
-    Returns:
-        List[str]: A list of batched text segments.
-    """
-    batches = []
-    current_batch = ""
-    current_token_count = 0
-
-    # Split prompt roughly by segments (we assume each line is a segment of transcription)
-    segments = prompt.splitlines()
-
-    for segment in segments:
-        tokens_in_segment = calculate_token_count(segment, tokenizer)
-
-        # If adding this segment exceeds the token limit, store the current batch and reset
-        if current_token_count + tokens_in_segment > token_limit:
-            batches.append(current_batch.strip())
-            current_batch = segment
-            current_token_count = tokens_in_segment
-        else:
-            current_batch += f" {segment}"
-            current_token_count += tokens_in_segment
-
-    # Add the final batch if it's non-empty
-    if current_batch:
-        batches.append(current_batch.strip())
-
-    return batches
 
 
 def generate_chunked_summary(prompt: str, model_or_key, tokenizer, token_limit: int) -> str:
@@ -493,24 +423,7 @@ def generate_chunked_summary(prompt: str, model_or_key, tokenizer, token_limit: 
         return generate_summary(final_prompt, model_or_key, tokenizer)
 
 
-# def generate_summary(prompt: str, model_or_key, tokenizer) -> str:
-#     if isinstance(model_or_key, str) and "gpt" in model_or_key.lower():
-#         return call_gpt_api(prompt, model_or_key)
-#     else:
-#         inputs = tokenizer(prompt, return_tensors="pt").to(next(model_or_key.parameters()).device)
-#         outputs = model_or_key.generate(**inputs, max_length=1500)
-#         return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-
-# def generate_summary(prompt: str, model_version: str, tokenizer) -> str:
-#     """
-#     Generate summary text by calling the GPT API.
-#     """
-#     return call_gpt_api(prompt, model_version)
-
-
 if __name__ == "__main__":
-    # Example usage of the function # TODO: add df parsing from csv
     test_prompt = "Explain the key differences between supervised and unsupervised learning."
 
     # Run with multiple GPT versions

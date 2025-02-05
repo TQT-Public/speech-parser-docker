@@ -692,3 +692,22 @@ Let’s implement the DeepSeek API handling based on the structure you provided 
 
     - You might need to enable API access from your account dashboard.
     - Copy the API key and securely store it for your project.
+
+### 4. **Instructions to Get API Keys and Test LLMs**
+
+#### **Anthropic Claude API**
+
+- **Sign up**: Visit [Anthropic’s API Page](https://www.anthropic.com/).
+- **Get API Key**: After registering, go to the API section to generate an API key.
+- **Documentation**: Refer to [Anthropic’s API Docs](https://docs.anthropic.com/) for more details.
+
+#### **Google Gemini API**
+
+- **Sign up**: Visit [Google Cloud Console](https://console.cloud.google.com/) and enable the Google Gemini API in your project.
+- **Generate API Key**: Go to "APIs & Services" and create a new API key.
+- **Set Up Quotas**: Google Cloud provides the ability to configure quotas and rate limits on API requests.
+
+#### **DeepSeek API**
+
+- **Sign up**: Visit [DeepSeek's API page](https://api-docs.deepseek.com/) or [Apply for an API key page](hhttps://platform.deepseek.com/api_keys) and follow the registration process.
+- **API Documentation**: You will find documentation and token limits for DeepSeek’s models after logging in.

@@ -2,7 +2,7 @@
 # from .model_loader import ()
 
 # ./__init__.py
-
+from .loader import *
 
 # ./__init__.py
 # from .custom_llama import LlamaModel_fast_forward_inference

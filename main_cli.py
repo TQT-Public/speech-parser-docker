@@ -33,6 +33,8 @@ from tqdm import tqdm
 from loguru import logger
 
 # Import configuration and CLI helper functions
+from speech_analyzer.loader import load_model_by_key
+from speech_analyzer.promt_utils import split_prompt_into_batches
 from speech_parser import batch_segments, process_audio_segments
 from speech_parser.utils.config import (
     DRY_RUN,
@@ -78,17 +80,11 @@ from speech_analyzer.csv_loader import load_csv_data_for_model
 # from speech_analyzer.dialogue_analyzer import analyze_dialogue
 from speech_analyzer.gpt_loader import (
     calculate_token_count,
-    generate_chunked_summary,
-    load_gpt_model,
+    # generate_chunked_summary,
+    # load_gpt_model,
     generate_summary,
 )
 
-# from speech_parser.audio_processing.convert_audio import convert_wav_to_mp3, convert_wav_to_pcm
-# from speech_parser.audio_processing.process_audio import (
-#     prepare_segment_data,
-#     process_audio_file,
-#     split_audio_by_segments,
-# )
 from models.download_model import check_and_download_model
 from speech_parser.audio_processing.speaker_identify import (
     # assign_speaker_names,
@@ -97,6 +93,7 @@ from speech_parser.audio_processing.speaker_identify import (
     identify_speakers_pyannote,
     load_rttm_file,
 )
+from speech_parser.utils.env import env_as_str
 
 
 def main():
@@ -231,16 +228,11 @@ def main():
     logger.debug(f"AI functions enabled: {ENABLE_AI}, Using Model: {AI_MODEL_NAME}")
     if os.getenv("ENABLE_AI", "True").lower() == "true":
         ai_start_time = datetime.datetime.now()
-        ai_model_key = os.getenv("AI_MODEL_NAME", "gpt-4")
-        csv_file = AUDIOWORKSPACE / f"{audio_file.stem}.csv"
-        logger.debug(f"AI analysis - Start Time: {ai_start_time}")
-        try:
-            model_or_key, tokenizer = load_gpt_model(ai_model_key)  # TODO: add a custom selectable loader
-            logger.info(f"Loaded AI model: {ai_model_key}")
-        except Exception as e:
-            logger.error(f"Error loading AI model: {e}")
-            return
+        ai_model_key = env_as_str("AI_MODEL_NAME", "google-gemini")
+        model_load_type = env_as_str("MODEL_LOAD_TYPE", "api")  # Use 'api' or 'local' loader type
+        api_key = os.getenv("GOOGLE_API_KEY")  # For API-based models
 
+        csv_file = AUDIOWORKSPACE / f"{audio_file.stem}.csv"
         df = load_csv_data_for_model(str(csv_file))
         dialogue_text = "\n".join(
             [
@@ -251,21 +243,39 @@ def main():
         )
         # Construct a summarization prompt
         prompt = (
-            "Summarize the following dialogue and extract the main topics. "
+            "Summarize the following dialogue in Russian and extract the main topics. "
             "Identify the key points discussed by each speaker and provide a concise summary.\n\n"
             f"{dialogue_text}"
         )
+        # Attempt to load the model or API
+        logger.debug(f"AI analysis - Start Time: {ai_start_time}, Model: {ai_model_key}")
+
+        try:
+            model_or_key, tokenizer = load_model_by_key(
+                ai_model_key, load_type=model_load_type, token=api_key
+            )
+            # model_or_key, tokenizer = load_gpt_model(ai_model_key)  # TODO: add a custom selectable loader
+            logger.info(f"Loaded AI model: {ai_model_key}")
+        except Exception as e:
+            logger.error(f"Error loading AI model: {e}")
+            return
+
         # Check token count and, if necessary, split the prompt into chunks
         if tokenizer is not None:
             token_count = calculate_token_count(prompt, tokenizer)
-            logger.info(f"Full prompt token count: {token_count}")
+            logger.debug(f"Full prompt token count: {token_count}")
             if token_count > TOKEN_LIMIT:
-                summary = generate_chunked_summary(prompt, model_or_key, tokenizer, TOKEN_LIMIT)
+                logger.info("Prompt exceeds token limit, splitting into batches.")
+                prompt_batches = split_prompt_into_batches(prompt, tokenizer, TOKEN_LIMIT)
+                summary = "\n".join(
+                    [generate_summary(batch, model_or_key, tokenizer) for batch in prompt_batches]
+                )
+                # summary = generate_chunked_summary(prompt, model_or_key, tokenizer, TOKEN_LIMIT)
             else:
                 summary = generate_summary(prompt, model_or_key, tokenizer)
         else:
             summary = generate_summary(prompt, model_or_key, tokenizer)
-        # summary = generate_summary(prompt, model_or_key, tokenizer)
+
         try:
             summary = generate_summary(prompt, model_or_key, tokenizer)
             logger.info(f"Generated Summary:\n{summary}")
@@ -274,7 +284,7 @@ def main():
         # Ensure summary is wrapped as a list of dictionaries for saving
         if isinstance(summary, str):
             summary = [{"transcription": summary}]
-        save_summary(summary, audio_file.stem, OUTPUT_DIR)
+        save_summary(summary, audio_file.stem, OUTPUT_DIR, ai_model_key=ai_model_key)
         logger.debug(f"Summary saved at {OUTPUT_DIR} using AI model {os.getenv('AI_MODEL_NAME')}")
         ai_end_time = datetime.datetime.now()
         logger.debug(f"AI - Total run time: {ai_end_time - ai_start_time}")
