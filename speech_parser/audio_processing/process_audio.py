@@ -16,11 +16,14 @@ from dotenv import load_dotenv
 from vosk import SetLogLevel
 
 from speech_parser.utils.env import env_as_bool, env_as_int, env_as_path, env_as_str
+from speech_parser.utils.config import ENABLE_AUDIO_SPLIT_LOGS
+from speech_parser.utils.env_manager import EnvManager
 
 torch.backends.cuda.matmul.allow_tf32 = True  # Enable TensorFloat32
 # Load environment variables from .env
 load_dotenv()
-
+# Initialize the environment using EnvManager
+env_manager = EnvManager()
 # # Load variables
 AUDIOWORKSPACE_ENV = env_as_path("AUDIOWORKSPACE", "./audio_parts")
 OUTPUT_DIR_PARTS_ENV = env_as_path("OUTPUT_DIR_PARTS" "./audio_parts/parts")
@@ -162,7 +165,8 @@ def prepare_segment_data_batching(batched_segments, model_path, total_audio_leng
         audio_segment_file_path = Path(output_dir) / f"{audio_name}_part{batch_num + 1}.wav"
         # audio_segment_file_path = Path(str(output_dir), f"{audio_name}_part{batch_num + 1}.wav")
         audio_segment_file_path.resolve()
-        logger.info(f"Batch Path: {str(audio_segment_file_path)}")
+        if ENABLE_AUDIO_SPLIT_LOGS:
+            logger.info(f"Batch Path: {str(audio_segment_file_path)}")
 
         segment_data_list.append(
             {
@@ -211,7 +215,9 @@ def prepare_segment_data(rttm_segments, model_path, total_audio_length, audio_na
             audio_segment_file_path = Path(output_dir) / f"{audio_name}_{speaker}_part{segment_num + 1}.wav"
             audio_segment_file_path.resolve()
 
-            logger.info(f"Segment Path: {str(audio_segment_file_path)}")
+            if ENABLE_AUDIO_SPLIT_LOGS:
+                logger.info(f"Segment Path: {str(audio_segment_file_path)}")
+
             audio_segment_file = f"{str(audio_segment_file_path)}"
             segment_data_list.append(
                 {
@@ -265,7 +271,8 @@ def split_audio_by_segments(audio_file, rttm_segments, output_dir, speaker_name_
             )
             audio_segment_file_path.resolve()
 
-            logger.info(f"Segment Path: {str(audio_segment_file_path)}")
+            if ENABLE_AUDIO_SPLIT_LOGS:
+                logger.info(f"Segment Path: {str(audio_segment_file_path)}")
 
             # Extract and save the audio segment
             start_time_ms = segment["start_time"] * 1000  # Convert to milliseconds

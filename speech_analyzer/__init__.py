@@ -3,6 +3,7 @@
 
 # ./__init__.py
 from .loader import *
+from .promt_utils import *
 
 # ./__init__.py
 # from .custom_llama import LlamaModel_fast_forward_inference

@@ -7,6 +7,7 @@ from .helpers import (
 )
 
 from .env import *
+from .env_manager import *
 
 # from .punctuation import *
 from .config import *

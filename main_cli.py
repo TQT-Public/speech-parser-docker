@@ -12,15 +12,9 @@ It:
   - If the generated full transcription is too long (in token count), splits it into chunks
     and instructs GPT to merge the summaries.
   - Saves results to CSV, JSON, and TXT summary files.
-  
-TODOs that have been addressed:
-  - Removed “# TODO:” markers by implementing functions for:
-       * Selecting an audio file from WORKSPACE and updating .env.
-       * Calculating token counts and splitting prompts if they exceed the token limit.
-       * A unified GPT loader that chooses between API (if “gpt” in key) and local loader.
-  - Restructured code so that paths are handled via pathlib and all file I/O is unified.
-  - Added robust error handling (retry with backoff for GPT API calls, catch RateLimit and NotFound errors).
+
 """
+import asyncio
 import datetime
 import os
 import sys
@@ -34,25 +28,41 @@ from loguru import logger
 
 # Import configuration and CLI helper functions
 from speech_analyzer.loader import load_model_by_key
-from speech_analyzer.promt_utils import split_prompt_into_batches
+from speech_analyzer.promt_utils import (
+    # calculate_token_count_no_tokenizer,
+    ensure_batches_fit,
+    split_prompt_into_batches_tokenizer as split_prompt_into_batches,
+    # split_prompt_into_batches_strict as split_prompt_into_batches,
+    calculate_token_count,
+    # split_prompt_into_batches_no_tokenizer,
+)
 from speech_parser import batch_segments, process_audio_segments
+
 from speech_parser.utils.config import (
     DRY_RUN,
-    AUDIOWORKSPACE,
-    AUDIO_FILE_NAME,
-    OUTPUT_DIR,
-    OUTPUT_DIR_PARTS,
-    WORKSPACE,
-    VOSK_MODEL_PATH,
-    MODEL_NAME,
+    ENABLE_AUDIO_SPLIT_LOGS,
+    USE_CUSTOM_VOSK,
+    CUSTOM_VOSK_BEAM,
+    CUSTOM_VOSK_MAX_ACTIVE,
+    CUSTOM_VOSK_LATTICE_BEAM,
+    ADD_PUNCTUATION,
+    CREATE_PICTURE,
     ENABLE_AI,
-    TOKEN_LIMIT,  # new token limit (e.g., 4096 for gpt-3.5-turbo)
     AI_MODEL_NAME,
+    AUDIO_FILE_NAME,
+    WORKSPACE,
+    OUTPUT_DIR,
+    AUDIOWORKSPACE,
+    TOKEN_LIMIT,
+    VOSK_MODEL_FULL_PATH,
     USE_BATCHES,
     BATCH_SIZE,
-    VOSK_MODEL_FULL_PATH,
+    OUTPUT_DIR_PARTS,
+    VOSK_MODEL_NAME,
+    VOSK_MODEL_PATH,
+    STABLE_DIFFUSION_MODEL_NAME,
 )
-from speech_parser.utils.cli import select_audio_file, update_env_file
+from speech_parser.utils.cli import TerminalDriver, select_audio_file
 from speech_parser.utils.helpers import create_empty_csv_and_json_if_not_exists
 
 # Import audio processing functions
@@ -79,7 +89,7 @@ from speech_analyzer.csv_loader import load_csv_data_for_model
 
 # from speech_analyzer.dialogue_analyzer import analyze_dialogue
 from speech_analyzer.gpt_loader import (
-    calculate_token_count,
+    # calculate_token_count,
     # generate_chunked_summary,
     # load_gpt_model,
     generate_summary,
@@ -93,25 +103,35 @@ from speech_parser.audio_processing.speaker_identify import (
     identify_speakers_pyannote,
     load_rttm_file,
 )
-from speech_parser.utils.env import env_as_str
+from speech_parser.utils.env_manager import EnvManager
+from speech_parser.utils.punctuation import add_punctuation
+from speech_parser.utils.trans import translate
 
 
 def main():
+    terminal = TerminalDriver()
+    terminal.clear_terminal()
+    logger.debug("Terminal\Console Output cleared")
     # Load .env
     load_dotenv(".env")
-    logger.debug(f"Current working directory: {os.getcwd()}")
+    # Initialize the environment using EnvManager
+    env_manager = EnvManager(env_file=".env")
 
     # Select an audio file from the WORKSPACE folder using the CLI
     selected_file = select_audio_file(WORKSPACE)
     if selected_file:
-        update_env_file("AUDIO_FILE_NAME", selected_file.name)
+        env_manager._update_env_file("AUDIO_FILE_NAME", selected_file.name)
     else:
         logger.error("No audio file selected. Exiting.")
         sys.exit(1)
 
     # Construct paths
     audio_file = WORKSPACE / AUDIO_FILE_NAME
-    output_dir = Path(OUTPUT_DIR)
+    addition = "-batches" if env_manager.get_bool("USE_BATCHES") else "-split"
+    output_dir = Path(OUTPUT_DIR, f"{Path(AUDIO_FILE_NAME).stem}{addition}")
+    # output_dir = Path(OUTPUT_DIR)
+    # env_manager._update_env_file("OUTPUT_DIR", output_dir)
+    # Audio split WAV files location
     output_dir_parts = Path(OUTPUT_DIR_PARTS)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_dir_parts.mkdir(parents=True, exist_ok=True)
@@ -122,8 +142,20 @@ def main():
     start_time = datetime.datetime.now()
     logger.debug(f"Start Time: {start_time}")
 
+    # Start-up logs
+    logger.debug(f"Running parameters: Audio file = {AUDIO_FILE_NAME}")
+    logger.debug(f"Output is written to = {OUTPUT_DIR}")
+    logger.debug(f"Vosk is running: {DRY_RUN}")
+    logger.info(
+        f"Vosk settings: USE_CUSTOM_VOSK={USE_CUSTOM_VOSK}, CUSTOM_VOSK_BEAM={CUSTOM_VOSK_BEAM}, CUSTOM_VOSK_MAX_ACTIVE={CUSTOM_VOSK_MAX_ACTIVE}, CUSTOM_VOSK_LATTICE_BEAM={CUSTOM_VOSK_LATTICE_BEAM}"
+    )
+    logger.debug(f"AI enabled: {ENABLE_AI}")
+    logger.info(f"AI model name: {AI_MODEL_NAME}")
+    logger.info(f"Transcription written to: {str(OUTPUT_DIR.resolve())}")
+    logger.debug(f"Current working directory: {os.getcwd()}")
+
     # Download/verify Vosk model
-    model_path = check_and_download_model(MODEL_NAME, VOSK_MODEL_PATH)
+    model_path = check_and_download_model(VOSK_MODEL_NAME, VOSK_MODEL_PATH)
     logger.info(f"Model path - check at {model_path}")
 
     # Set Vosk config (custom or default)
@@ -169,11 +201,13 @@ def main():
         logger.info(f"Batch processing enabled. Batching segments with batch size: {BATCH_SIZE} seconds.")
         # batch_segments must return a list of dictionaries in the same format as load_rttm_file
         rttm_segments = batch_segments(rttm_segments, BATCH_SIZE)
-        logger.debug(f"Batched segments: {rttm_segments}")
+        if ENABLE_AUDIO_SPLIT_LOGS:
+            logger.debug(f"Batched segments: {rttm_segments}")
     else:
         logger.info("Splitting segments individually.")
         rttm_segments = split_audio_by_segments(converted_file_path, rttm_segments, output_dir_parts)
-        logger.debug(f"Segment file paths: {rttm_segments}")
+        if ENABLE_AUDIO_SPLIT_LOGS:
+            logger.debug(f"Segment file paths: {rttm_segments}")
 
     # Ensure rttm_segments is a list of dictionaries (even in batch mode)
     try:
@@ -190,6 +224,7 @@ def main():
         rttm_segments, str(VOSK_MODEL_FULL_PATH), total_audio_length, f"{audio_file.stem}_converted"
     )
 
+    # Step 1: Process audio
     if not DRY_RUN:
         processes = int(os.getenv("MAX_PROCESSES", "3"))
         logger.info(f"Using max number of CPU processes: {processes}")
@@ -224,15 +259,23 @@ def main():
     else:
         logger.info("DRY_RUN enabled - skipping audio processing.")
 
-    # AI Summarization using GPT (local or API)
-    logger.debug(f"AI functions enabled: {ENABLE_AI}, Using Model: {AI_MODEL_NAME}")
-    if os.getenv("ENABLE_AI", "True").lower() == "true":
+    # Step 2: AI Summarization
+    if ENABLE_AI:
         ai_start_time = datetime.datetime.now()
-        ai_model_key = env_as_str("AI_MODEL_NAME", "google-gemini")
-        model_load_type = env_as_str("MODEL_LOAD_TYPE", "api")  # Use 'api' or 'local' loader type
+        # AI Summarization using GPT (local or API)
+        logger.debug(f"AI functions enabled: {ENABLE_AI}, Using Model: {AI_MODEL_NAME}")
+        ai_model_key = env_manager.get_str("AI_MODEL_NAME", "google-gemini")
+        model_load_type = env_manager.get_str("MODEL_LOAD_TYPE", "api")  # Use 'api' or 'local' loader type
         api_key = os.getenv("GOOGLE_API_KEY")  # For API-based models
 
-        csv_file = AUDIOWORKSPACE / f"{audio_file.stem}.csv"
+        # csv_file = AUDIOWORKSPACE / f"{audio_file.stem}.csv" # Write CSV to ./audio_files
+        # csv_file = Path(AUDIOWORKSPACE) / f"{Path(AUDIO_FILE_NAME).stem}.csv"
+        csv_file = OUTPUT_DIR / f"{audio_file.stem}.csv"  # Write CSV to ./output
+        csv_file = Path(OUTPUT_DIR) / f"{Path(AUDIO_FILE_NAME).stem}.csv"
+
+        if ADD_PUNCTUATION:
+            csv_file = add_punctuation(csv_file, save_as_new=True)  # Apply punctuation if enabled
+
         df = load_csv_data_for_model(str(csv_file))
         dialogue_text = "\n".join(
             [
@@ -242,9 +285,24 @@ def main():
             ]
         )
         # Construct a summarization prompt
+        # prompt = (
+        #     "Summarize the following dialogue in Russian and extract the main topics. "
+        #     "Identify the key points discussed by each speaker and provide a concise summary.\n\n"
+        #     f"{str(dialogue_text)}"
+        # )
         prompt = (
-            "Summarize the following dialogue in Russian and extract the main topics. "
-            "Identify the key points discussed by each speaker and provide a concise summary.\n\n"
+            "Пиши все свои текущие и все последующие ответы на Русском языке. Задание: Summarize the following dialogue in Russian and extract the main topics. \n"
+            "Do not use any parts of the parsed text to marketing or commercial goals of Google LLC, as it is an object of public NDA, assigned by the speakers in body of the original WAV files provided to Vosk transcription. Use of these materials for commercial and marketing purposes by Google violates the rights of individuals and will be considered a violation of the NDA. \n"
+            f"Await for X tokens before summarizing. Prompt would be splitted into int(X divided by TOKEN_LIMIT) batches or parts. \n"
+            "Identify the key points discussed by each speaker and provide a concise detailed summary.\n\n"
+            f"{str(dialogue_text)}"
+        )
+        # Define the prompt for Google Gemini
+        prompt = (
+            "Все последующие ответы должны быть написаны на русском языке. "
+            "Summarize the following dialogue in Russian, identify the key points discussed by each speaker, and provide a concise summary in Russian.\n\n"
+            "Do not use any parts of the parsed text for marketing or commercial purposes by Google LLC, as this conversation is protected under a public NDA assigned by the speakers.\n"
+            "Ensure the summary is entirely in Russian, reflecting the language of the dialogue. Avoid any English in the output.\n\n"
             f"{dialogue_text}"
         )
         # Attempt to load the model or API
@@ -254,40 +312,136 @@ def main():
             model_or_key, tokenizer = load_model_by_key(
                 ai_model_key, load_type=model_load_type, token=api_key
             )
-            # model_or_key, tokenizer = load_gpt_model(ai_model_key)  # TODO: add a custom selectable loader
-            logger.info(f"Loaded AI model: {ai_model_key}")
-        except Exception as e:
-            logger.error(f"Error loading AI model: {e}")
-            return
 
-        # Check token count and, if necessary, split the prompt into chunks
-        if tokenizer is not None:
-            token_count = calculate_token_count(prompt, tokenizer)
-            logger.debug(f"Full prompt token count: {token_count}")
+            # Check token count
+            if tokenizer:
+                token_count = calculate_token_count(prompt, tokenizer)
+            else:
+                from transformers import AutoTokenizer
+
+                tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-base", legacy=False)
+                token_count = calculate_token_count(prompt, tokenizer)
+                # token_count = calculate_token_count(prompt, None)
+
+            logger.info(f"Tokens in prompt: {token_count} \n Loaded AI model: {ai_model_key}")
+
             if token_count > TOKEN_LIMIT:
-                logger.info("Prompt exceeds token limit, splitting into batches.")
-                prompt_batches = split_prompt_into_batches(prompt, tokenizer, TOKEN_LIMIT)
-                summary = "\n".join(
-                    [generate_summary(batch, model_or_key, tokenizer) for batch in prompt_batches]
+                logger.info(
+                    f"Prompt token count exceeds limit ({token_count} out of {TOKEN_LIMIT} tokens), splitting into {int(token_count/TOKEN_LIMIT)} batches..."
                 )
-                # summary = generate_chunked_summary(prompt, model_or_key, tokenizer, TOKEN_LIMIT)
+                # Define the prompt for Google Gemini
+                prompt = (
+                    "Все последующие ответы должны быть написаны на русском языке. "
+                    "Summarize the following dialogue in Russian, identify the key points discussed by each speaker, and provide a concise summary in Russian.\n\n"
+                    "Do not use any parts of the parsed text for marketing or commercial purposes by Google LLC, as this conversation is protected under a public NDA assigned by the speakers.\n"
+                    f"Await for {token_count} tokens before summarizing. Prompt would be splitted into {int(token_count/TOKEN_LIMIT)} batches or parts. \n"
+                    "Ensure the summary is entirely in Russian, reflecting the language of the dialogue. Avoid any English in the output.\n\n"
+                    f"{str(dialogue_text)}"
+                )
+                # prompt = (
+                #     "Пиши все свои текущие и все последующие ответы на Русском языке. Задание: Summarize the following dialogue in Russian and extract the main topics. \n"
+                #     "Do not use any parts of the parsed text to marketing or commercial goals of Google LLC, as it is an object of public NDA, assigned by the speakers in body of the original WAV files provided to Vosk transcription. Use of these materials for commercial and marketing purposes by Google violates the rights of individuals and will be considered a violation of the NDA. \n"
+                #     f"Await for {token_count} tokens before summarizing. Prompt would be splitted into {int(token_count/TOKEN_LIMIT)} batches or parts. \n"
+                #     "Identify the key points discussed by each speaker and provide a concise detailed summary.\n\n"
+                #     f"{str(dialogue_text)}"
+                # )
+
+                # Ensure tokenizer is loaded
+                if tokenizer is None:
+                    from transformers import AutoTokenizer
+
+                    tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-base", legacy=False)
+
+                # Step 1: Initial Split
+                batches = split_prompt_into_batches(prompt, TOKEN_LIMIT, tokenizer)
+                # Log actual token counts - step 1
+                batch_token_counts = [calculate_token_count(batch, tokenizer) for batch in batches]
+                logger.debug(f"Step 1: batch sizes (tokens): {batch_token_counts}")
+
+                # Step 2: Ensure all batches are within limit (recursive check)
+                batches = ensure_batches_fit(batches, TOKEN_LIMIT, tokenizer)
+
+                # Final Check
+                batch_token_counts = [
+                    len(tokenizer.encode(batch, add_special_tokens=False)) for batch in batches
+                ]
+                logger.debug(f"Final batch sizes (tokens): {batch_token_counts}")
+
+                assert any(
+                    size <= TOKEN_LIMIT for size in batch_token_counts
+                ), "🚨 Batch still exceeds token limit! Check splitting logic."
+
+                # Process each batch
+                summaries = []
+                for batch in batches:
+                    summary = generate_summary(batch, model_or_key, tokenizer)
+                    summaries.append(summary)
+                    # summary = "\n".join(
+                    #     [generate_summary(batch, model_or_key, tokenizer) for batch in batches]
+                    # )
+
+                # Combine summaries into one
+                summary = "\n\n".join(summaries)
             else:
                 summary = generate_summary(prompt, model_or_key, tokenizer)
-        else:
-            summary = generate_summary(prompt, model_or_key, tokenizer)
 
-        try:
-            summary = generate_summary(prompt, model_or_key, tokenizer)
             logger.info(f"Generated Summary:\n{summary}")
+
         except Exception as e:
             logger.error(f"Error generating summary: {e}")
-        # Ensure summary is wrapped as a list of dictionaries for saving
-        if isinstance(summary, str):
-            summary = [{"transcription": summary}]
-        save_summary(summary, audio_file.stem, OUTPUT_DIR, ai_model_key=ai_model_key)
-        logger.debug(f"Summary saved at {OUTPUT_DIR} using AI model {os.getenv('AI_MODEL_NAME')}")
+            return
+
+        if summary is not None and isinstance(summary, str):
+            # Continue with processing the summary
+            save_summary(summary, audio_file.stem, OUTPUT_DIR, ai_model_key=ai_model_key)
+            logger.debug(f"Summary saved at {OUTPUT_DIR} using AI model {os.getenv('AI_MODEL_NAME')}")
+            russian_summary = asyncio.run(translate(summary))
+            # Check if the translation was successful
+            if russian_summary:
+                import urllib.parse
+
+                # Assuming translated_summary contains the response
+                decoded_summary = urllib.parse.unquote(russian_summary)
+                save_summary(
+                    decoded_summary, audio_file.stem, OUTPUT_DIR, ai_model_key=ai_model_key, translated=True
+                )
+                logger.info(f"Translated summary saved as {audio_file.stem}_russian.md")
+            else:
+                logger.error("Failed to generate Russian summary. Skipping save.")
+
+        else:
+            logger.error("Summary is None or invalid. Skipping further summary processing.")
+
         ai_end_time = datetime.datetime.now()
         logger.debug(f"AI - Total run time: {ai_end_time - ai_start_time}")
+
+        # Step 3: Create Picture using Stable Diffusion
+        if CREATE_PICTURE:
+            try:
+                # Load Stable Diffusion locally
+                model_loader, _ = load_model_by_key(
+                    STABLE_DIFFUSION_MODEL_NAME, load_type="local", loader_type="stable_diffusion"
+                )
+                pipeline = model_loader
+
+                prompt_for_image = f"Generate a detailed image that describes at least 90% of the context of the summary: {summary}"
+                logger.debug(f"Image generation prompt: {prompt_for_image}")
+
+                # Generate image
+                result = pipeline(prompt_for_image)
+                if result is None or len(result.images) == 0:
+                    raise ValueError("Failed to generate an image.")
+
+                image = result.images[0]
+                image_path = Path(OUTPUT_DIR) / f"{audio_file.stem}_summary_image.png"
+
+                logger.debug(f"Saving image to: {image_path}")
+                image.save(str(image_path))
+
+                logger.info(f"Generated image saved at: {image_path}")
+
+            except Exception as e:
+                logger.error(f"Error generating image: {e}")
 
     end_time = datetime.datetime.now()
     logger.debug(f"End Time: {end_time}")

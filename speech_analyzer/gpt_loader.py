@@ -8,17 +8,9 @@ from dotenv import load_dotenv
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from speech_analyzer.loader import APIModuleLoader, LLMLocalLoader
-from speech_parser.utils.env import env_as_int
+from speech_analyzer.promt_utils import calculate_token_count, split_prompt_into_batches
 
-# from openai._exceptions import (
-#     RateLimitError,
-#     APIError,
-#     InvalidRequestError,
-#     APIConnectionError,
-#     ServiceUnavailableError,
-#     OpenAIError,
-#     NotFoundError,
-# )
+
 # Load environment variables
 load_dotenv()
 
@@ -330,7 +322,7 @@ def generate_summary(prompt: str, model_or_key, tokenizer):
     # Check if model_or_key is an API model (i.e., instance of APIModuleLoader)
     if isinstance(model_or_key, APIModuleLoader):
         if "gpt" in model_or_key.model_name.lower():
-            return call_gpt_api(prompt, model_or_key.model_name)  # API call for GPT models
+            return model_or_key.call_gpt(prompt)  # API call for GPT models
         elif "gemini" in model_or_key.model_name.lower():
             return model_or_key.call_api(prompt)  # Google Gemini API
         elif "deepseek" in model_or_key.model_name.lower():
@@ -342,53 +334,6 @@ def generate_summary(prompt: str, model_or_key, tokenizer):
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     outputs = model_or_key.generate(**inputs, max_length=1500)
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-
-def split_prompt_into_batches(prompt, tokenizer, token_limit=env_as_int("TOKEN_LIMIT", "4096")):
-    """
-    Splits the transcriptions (which may not contain punctuation) into manageable batches based on token limits.
-
-    Args:
-        prompt (str): The full transcription or dialogue text.
-        tokenizer: The tokenizer used for counting tokens and generating batches.
-        token_limit (int): The maximum number of tokens allowed for each batch a.k.a. TOKEN_LIMIT.
-
-    Returns:
-        List[str]: A list of batched text segments.
-    """
-    # Split the prompt using a combination of line breaks and spaces as a rough segmentation method
-    segments = prompt.splitlines()  # Split by lines first (assuming each line represents a dialogue/segment)
-
-    batches = []
-    current_batch = ""
-    current_token_count = 0
-
-    for segment in segments:
-        # Tokenize the current segment
-        tokens_in_segment = tokenizer(segment, return_tensors="pt")["input_ids"].size(1)
-
-        # If adding this segment exceeds the token limit, start a new batch
-        if current_token_count + tokens_in_segment > token_limit:
-            batches.append(current_batch.strip())
-            current_batch = segment  # Start a new batch with the current segment
-            current_token_count = tokens_in_segment
-        else:
-            current_batch += f" {segment}"  # Add the segment to the current batch
-            current_token_count += tokens_in_segment
-
-    # Add the last batch if it's not empty
-    if current_batch:
-        batches.append(current_batch.strip())
-
-    return batches
-
-
-def calculate_token_count(text: str, tokenizer) -> int:
-    """
-    Calculate the number of tokens in a given text using the specified tokenizer.
-    """
-    tokens = tokenizer.encode(text)
-    return len(tokens)
 
 
 def generate_chunked_summary(prompt: str, model_or_key, tokenizer, token_limit: int) -> str:

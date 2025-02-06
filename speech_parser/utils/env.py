@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import re
 from dotenv import load_dotenv
+from loguru import logger
 
 
 def env_as_bool(name: str, default: bool = False) -> bool:
@@ -22,6 +23,17 @@ def env_as_float(name: str, default: float = 1.0) -> float:
 
 def env_as_path(name: str, default: Path = ".") -> Path:
     return Path(os.getenv(name, default))
+
+
+def update_env_file(key: str, value: str, env_file: str = ".env"):
+    """Updates the .env file with the provided key-value pair."""
+    from dotenv import set_key
+
+    env_path = Path(env_file)
+    if not env_path.exists():
+        env_path.write_text("")  # create empty .env if missing
+    set_key(str(env_path), key, value)
+    logger.debug(f"Updated {key} in {env_file} to '{value}'")
 
 
 def filename_as_csv(audio_file_name):

@@ -1,4 +1,4 @@
-# speech_analyzer/model_loader.py
+# speech_analyzer/loader.py
 import os
 import time
 import torch
@@ -12,8 +12,14 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from diffusers import StableDiffusionPipeline
 from dotenv import load_dotenv
 
+from speech_analyzer.promt_utils import calculate_token_count
+from speech_parser.utils.env_manager import EnvManager
+
 # Load environment variables
 load_dotenv()
+load_dotenv(".env")
+# Initialize the environment using EnvManager
+env_manager = EnvManager(env_file=".env")
 
 # Define basic token and rate limits (adjust as needed)
 TOKEN_LIMITS = {
@@ -84,7 +90,8 @@ class APIModuleLoader:
         self.model_name = model_name
         self.api_key = api_key
         self.rate_limits = RATE_LIMITS.get(model_name, None)
-        self.token_limit = TOKEN_LIMITS.get(model_name, None)
+        self.token_limit = env_manager.get_int("TOKEN_LIMIT", 4096)
+        # self.token_limit = TOKEN_LIMITS.get(model_name, None)
         self.request_counter = 0
         self.last_request_time = time.time()
 
@@ -115,7 +122,15 @@ class APIModuleLoader:
         Call the API for the given prompt.
         """
         logger.info(f"Calling API for model: {self.model_name}")
-        if len(prompt) > self.token_limit:
+        logger.debug(f"API token limit set to: {self.token_limit}")
+        token_count = calculate_token_count(
+            prompt, tokenizer=AutoTokenizer.from_pretrained("google/t5-v1_1-base", legacy=False)
+        )
+        logger.debug(f"Prompt length: {token_count}")
+        logger.info(f"Current prompt: {prompt}")
+        logger.debug(f"Words count: {len(prompt.split())}")
+
+        if token_count > self.token_limit:
             raise ValueError(f"Prompt exceeds token limit for {self.model_name} - Try batching data")
 
         if self.is_rate_limited():
@@ -318,8 +333,10 @@ class LLMLocalLoader:
         """
         if loader_type == "unsloth" and self.unsloth_installed:
             return self.unsloth_model_loader(model_name)
-        else:
+        elif loader_type == "huggingface":
             return self.huggingface_model_loader(model_name)
+        elif loader_type == "stable_diffusion":
+            return self.stable_diffusion_model_loader(model_name)
 
     def unsloth_model_loader(
         self, model_name: str, max_seq_length: int = 2048, dtype=torch.float16, load_in_4bit: bool = True
@@ -345,11 +362,25 @@ class LLMLocalLoader:
         return model, tokenizer
 
     def stable_diffusion_model_loader(self, model_name: str):
+        """
+        Load a Stable Diffusion model locally for image generation.
+
+        Args:
+            model_name (str): The name of the model to load (e.g., 'stable-diffusion-v1-5').
+
+        Returns:
+            pipeline: The loaded Stable Diffusion pipeline.
+        """
+        # model_path = os.getenv(f"{model_name.upper()}_MODEL_PATH")
         model_path = os.getenv("STABLE_DIFFUSION_MODEL_PATH")
+        logger.debug(model_path)
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Stable Diffusion model not found at {model_path}")
+
+        # Load the Stable Diffusion model with half-precision
         pipeline = StableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16)
-        pipeline.to("cuda")
+        pipeline.to("cuda")  # Ensure the model is loaded onto the GPU
+        logger.info(f"Loaded Stable Diffusion model from {model_path}")
         return pipeline
 
 
@@ -392,7 +423,9 @@ def split_prompt_into_batches(prompt: str, tokenizer, token_limit: int) -> list:
 # =============================================================================
 
 
-def load_model_by_key(model_key: str, load_type: str = "api", token: str = None):
+def load_model_by_key(
+    model_key: str, load_type: str = "api", loader_type: str = "huggingface", token: str = None
+):
     """
     Load the appropriate model by key. For API-based models, use APIModuleLoader;
     for local models, use LLMLocalLoader.
@@ -401,7 +434,7 @@ def load_model_by_key(model_key: str, load_type: str = "api", token: str = None)
         return APIModuleLoader(model_key, api_key=token), None
     elif load_type == "local":
         loader = LLMLocalLoader(token=token)
-        return loader.load_local_model(model_key, loader_type="huggingface")
+        return loader.load_local_model(model_key, loader_type=loader_type)
     else:
         raise ValueError(f"Invalid load_type: {load_type}. Choose 'api' or 'local'.")
 

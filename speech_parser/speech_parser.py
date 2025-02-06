@@ -32,6 +32,8 @@ import datetime
 from dotenv import load_dotenv
 from pydub import AudioSegment
 
+from speech_parser.utils.config import ENABLE_AUDIO_SPLIT_LOGS
+
 
 # Load environment variables from .env
 load_dotenv()
@@ -267,14 +269,16 @@ def speech_parser():
     if USE_BATCHES:
         logger.info(f"Batch processing enabled. Batching segments with batch size: {BATCH_SIZE} seconds.")
         rttm_segments = batch_segments(rttm_segments, BATCH_SIZE)
-        logger.debug(f"Segments now: {rttm_segments}")
+        if ENABLE_AUDIO_SPLIT_LOGS:
+            logger.debug(f"Segments now: {rttm_segments}")
     else:
         # Create speaker WAV segments, split audio into segments for each speaker
         logger.info(f"Splitting segments with RTTM file: {rttm_file} by {len(rttm_segments)} parts.")
         rttm_segments = split_audio_by_segments(
             converted_file_path, rttm_segments, output_dir_parts
         )  # No batching
-        logger.debug(f"Audio segments created: {rttm_segments}")
+        if ENABLE_AUDIO_SPLIT_LOGS:
+            logger.debug(f"Audio segments created: {rttm_segments}")
 
     # Calculate total length based on the last segment's end_time
     total_audio_length = max([segment["end_time"] for segment in rttm_segments])

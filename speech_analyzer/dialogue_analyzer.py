@@ -197,7 +197,7 @@ def analyze_dialogue(file_path, model, tokenizer):
     prompt = (
         "Summarize the following dialogue and extract the main topics. "
         "Identify the key points discussed by each speaker and provide a concise summary.\n\n"
-        f"{dialogue_text}"
+        f"{str(dialogue_text)}"
     )
 
     # Generate summary (ensuring dtype is set correctly) # TODO: add loading several variants of loaders and types of summarizing functions. Make a class: ModelLoaderClass, and SummaRizor

@@ -4,6 +4,11 @@ import json
 from pathlib import Path
 from loguru import logger
 
+from speech_parser.utils.env_manager import EnvManager
+
+# Initialize the environment using EnvManager
+env_manager = EnvManager()
+
 
 def save_filtered_dialogue(speaker_transcription, audio_name, output_dir):
     filtered_dir = os.path.join(output_dir, str(audio_name))
@@ -16,7 +21,7 @@ def save_filtered_dialogue(speaker_transcription, audio_name, output_dir):
     logger.debug(f"Filtered dialogue saved to: {filtered_file}")
 
 
-def save_summary(summary, audio_name, output_dir, ai_model_key="google-gemini"):
+def save_summary(summary, audio_name, output_dir, ai_model_key="google-gemini", translated=False):
     """
     Save the summary of the dialogue to a file.
 
@@ -29,14 +34,20 @@ def save_summary(summary, audio_name, output_dir, ai_model_key="google-gemini"):
     audio_name = os.path.splitext(audio_name)[0]
 
     # Create the output directory if it doesn't exist
-    summary_dir = Path(output_dir, audio_name)
+    addition = "-batches" if env_manager.get_bool("USE_BATCHES") is True else "-split"
+    summary_dir = Path(output_dir, f"{Path(audio_name).stem}{addition}")
+    # summary_dir = Path(output_dir, audio_name, addition)
     os.makedirs(summary_dir, exist_ok=True)
 
     # Define the summary file path
-    summary_file = Path(summary_dir.resolve(), f"{ai_model_key}_summary.txt")
+    if not translated:
+        summary_file = Path(summary_dir.resolve(), f"{ai_model_key}_summary.md")
+    else:
+        summary_file = Path(summary_dir.resolve(), f"{ai_model_key}_summary_russian.md")
 
     # Handle different input types
     with open(summary_file, "w", encoding="utf-8") as f:
+        f.write("# Resume\n\n")  # Start line for .md
         if isinstance(summary, str):
             f.write(summary)  # Write the string directly
         elif isinstance(summary, list):
@@ -60,57 +71,6 @@ def save_summary(summary, audio_name, output_dir, ai_model_key="google-gemini"):
             )
 
     logger.debug(f"Discussion summary made by {ai_model_key} saved to: {summary_file}")
-
-
-# def save_summary(summary, audio_name, output_dir, ai_model_key="google-gemini"):
-#     """
-#     Save the summary of the dialogue to a file.
-
-#     Args:
-#         summary (str, list, or list of dicts): The generated summary.
-#         audio_name (str): Name of the audio file (without extension).
-#         output_dir (str): Directory to save the summary.
-#     """
-#     # Remove file extension from audio_name
-#     audio_name = os.path.splitext(audio_name)[0]
-
-#     # Create the output directory if it doesn't exist
-#     summary_dir = Path(output_dir, audio_name)
-#     os.makedirs(summary_dir, exist_ok=True)
-
-#     # Define the summary file path
-#     summary_file = Path(summary_dir.resolve(), f"{ai_model_key}_summary.txt")
-
-#     # Handle different input types
-#     with open(summary_file, "w", encoding="utf-8") as f:
-#         if isinstance(summary, str):
-#             f.write(summary)  # Write the string directly
-#         elif isinstance(summary, list):
-#             if all(isinstance(item, str) for item in summary):
-#                 f.write("\n".join(summary))  # Join list of strings with newlines
-#             elif all(isinstance(item, dict) for item in summary):
-#                 # Convert list of dictionaries to a formatted string
-#                 formatted_summary = []
-#                 for item in summary:
-#                     if "speaker" in item and "transcription" in item:
-#                         formatted_summary.append(f"{item['speaker']}: {item['transcription']}")
-#                     else:
-#                         logger.warning(f"Skipping invalid dictionary item: {item}")
-#                 f.write("\n".join(formatted_summary))  # Write formatted summary
-#             else:
-#                 raise TypeError(f"Unsupported list item type in summary: {type(summary[0])}")
-#         else:
-#             raise TypeError(
-#                 f"Unsupported summary type: {type(summary)}. Expected str, list, or list of dicts."
-#             )
-
-#     logger.debug(f"Discussion summary made by {ai_model_key} saved to: {summary_file}")
-
-
-# import os
-# import csv
-# import json
-# from loguru import logger
 
 
 def save_transcription_results(speaker_transcription, audio_name, output_dir, csv_file, json_file, rttm_file):
